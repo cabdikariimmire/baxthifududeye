@@ -1,4 +1,4 @@
-# baxth - AI Academic Research Assistant Platform
+# baxthi-fududeeye - AI Academic Research Assistant Platform
 
 A full-stack MERN (MongoDB, Express.js, React, Node.js) platform designed for generating, editing, and managing academic research papers with precise A4 pagination, Arabic RTL typography (Amiri font), citations, and multi-format exports (PDF/DOCX).
 
