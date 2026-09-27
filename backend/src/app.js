@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const { clerkMiddleware } = require('@clerk/express');
 
 const config = require('./config/env');
 const errorHandler = require('./middleware/errorHandler');
@@ -12,6 +13,7 @@ const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/auth.routes');
 const researchRoutes = require('./routes/research.routes');
 const adminRoutes = require('./routes/admin.routes');
+const publicRoutes = require('./routes/public.routes');
 const defaultBorders = require('./services/document/defaultBorders');
 
 const app = express();
@@ -63,8 +65,20 @@ app.use('/api', apiLimiter);
 if (config.nodeEnv !== 'test') {
   app.use(morgan('dev'));
 }
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString('utf8');
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Clerk Authentication Middleware (Attaches auth session to requests)
+app.use(clerkMiddleware());
+
+// Server-Side Maintenance Mode Enforcement (Permits admins, blocks public when active)
+const maintenanceMiddleware = require('./middleware/maintenanceMiddleware');
+app.use(maintenanceMiddleware);
 
 // Static uploads
 app.use('/uploads', express.static(config.uploadDir));
@@ -78,6 +92,7 @@ app.get('/api/borders/public', (req, res) => {
 });
 
 // API Routes
+app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/researches', researchRoutes);
 app.use('/api/admin', adminRoutes);

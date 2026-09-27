@@ -11,6 +11,7 @@ const {
   resolveAcademicHeadingStyle,
   ACADEMIC_LEVELS
 } = require('../document/academicHierarchy');
+const { getFontConfig } = require('../../config/researchFonts');
 
 /**
  * Server-Side A4 RTL PDF Generator
@@ -21,7 +22,9 @@ class PDFGenerator {
    * Builds standalone HTML representation of the complete research document
    */
   static buildDocumentHTML(documentModel) {
-    const { pages, border, title } = documentModel;
+    const { pages, border, title, fontFamily } = documentModel;
+    const researchFont = getFontConfig(fontFamily);
+    const researchFontFamily = researchFont.cssValue;
 
     const getDefaultCoverElements = (d = {}) => [
       { id: 'country', type: 'text', fieldKey: 'country', label: 'الدولة', content: d.country || '', x: 25, y: 26, width: 160, height: 9, fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#0f172a', zIndex: 1 },
@@ -40,6 +43,9 @@ class PDFGenerator {
       { id: 'gregorianYear', type: 'text', fieldKey: 'gregorianYear', label: 'العام الميلادي', content: d.gregorianYear || '', x: 25, y: 223, width: 160, height: 9, fontSize: 18.5, fontWeight: 'bold', textAlign: 'center', color: '#334155', zIndex: 1 }
     ];
 
+    let mabhathIdx = 0;
+    let matlabIdx = 0;
+
     const pagesHtml = pages.map((page) => {
       let contentHtml = '';
 
@@ -50,16 +56,15 @@ class PDFGenerator {
           : getDefaultCoverElements(d);
 
         const elementsHtml = coverElements.map((el) => {
-          const prefix = el.prefix || '';
           const raw = el.content || (d[el.fieldKey || el.id] || '');
-          const displayText = prefix ? `${prefix}${raw}` : raw;
+          const displayText = raw ? (el.prefix ? `${el.prefix}${raw}` : raw) : '';
 
           if (el.type === 'image') {
             const logoSrc = resolveLogoBase64(el.source || d.logoUrl);
             if (!logoSrc) return '';
             return `
               <div class="pdf-cover-element" style="position: absolute; left: ${el.x}mm; top: ${el.y}mm; width: ${el.width}mm; height: ${el.height ? el.height + 'mm' : 'auto'}; z-index: ${el.zIndex || 2}; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
-                <img src="${logoSrc}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="شعار الجامعة" />
+                <img class="cover-logo" src="${logoSrc}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="شعار الجامعة" />
               </div>
             `;
           }
@@ -117,7 +122,7 @@ class PDFGenerator {
 
         contentHtml = `
           <div class="inner-page">
-            ${!isContinuation ? `<h1 class="main-heading page-title">${page.title || 'المقدمة وخطة البحث'}</h1>` : `<div style="font-size: 13pt; color: #64748b; font-family: 'Amiri', serif; font-weight: bold; margin-bottom: 8px;">${page.title || 'المقدمة وخطة البحث (تابع)'}</div>`}
+            ${!isContinuation ? `<h1 class="main-heading page-title">${page.title || 'المقدمة وخطة البحث'}</h1>` : `<div style="font-size: 13pt; color: #64748b; font-family: ${researchFontFamily}; font-weight: bold; margin-bottom: 8px;">${page.title || 'المقدمة وخطة البحث (تابع)'}</div>`}
             <div class="intro-flow">
               ${paragraphs.map((p) => `<p class="body-text">${p}</p>`).join('\n              ')}
             </div>
@@ -183,8 +188,6 @@ class PDFGenerator {
           flushParagraph();
         });
 
-        let mabhathIdx = 0;
-        let matlabIdx = 0;
         let branchIdx = 0;
 
         const blocksHtml = normalizedBlocks.map((b) => {
@@ -192,9 +195,14 @@ class PDFGenerator {
           const isHeading = bLevel === ACADEMIC_LEVELS.MABHATH || bLevel === ACADEMIC_LEVELS.MATALAB || bLevel === ACADEMIC_LEVELS.BRANCH;
           
           let itemIndex = 0;
-          if (bLevel === ACADEMIC_LEVELS.MABHATH) itemIndex = mabhathIdx++;
-          else if (bLevel === ACADEMIC_LEVELS.MATALAB) itemIndex = matlabIdx++;
-          else if (bLevel === ACADEMIC_LEVELS.BRANCH) itemIndex = branchIdx++;
+          if (bLevel === ACADEMIC_LEVELS.MABHATH) {
+            itemIndex = mabhathIdx++;
+            matlabIdx = 0;
+          } else if (bLevel === ACADEMIC_LEVELS.MATALAB) {
+            itemIndex = matlabIdx++;
+          } else if (bLevel === ACADEMIC_LEVELS.BRANCH) {
+            itemIndex = branchIdx++;
+          }
 
           const displayTitle = isHeading
             ? formatAcademicHeadingTitle(b.text, bLevel, {
@@ -205,16 +213,17 @@ class PDFGenerator {
             : b.text;
 
           const styleConfig = resolveAcademicHeadingStyle(b, highestLevel);
+          const headingId = b.structureNodeId || b.blockId || '';
           if (styleConfig.isMainHeading) {
-            return `<h1 class="topic-h1" style="font-size: 18pt; font-weight: bold; text-align: center; font-family: 'Amiri', serif; direction: rtl; margin-top: 8pt; margin-bottom: 8pt;">${displayTitle}</h1>`;
+            return `<h1 class="topic-h1"${headingId ? ` id="${headingId}"` : ''} style="font-size: 18pt; font-weight: bold; text-align: center; font-family: ${researchFontFamily}; direction: rtl; margin-top: 8pt; margin-bottom: 8pt;">${displayTitle}</h1>`;
           }
           if (styleConfig.isSubHeading) {
-            return `<h2 class="topic-h2" style="font-size: 17pt; font-weight: bold; text-align: right; font-family: 'Amiri', serif; direction: rtl; margin-top: 10pt; margin-bottom: 8pt;">${displayTitle}</h2>`;
+            return `<h2 class="topic-h2"${headingId ? ` id="${headingId}"` : ''} style="font-size: 17pt; font-weight: bold; text-align: right; font-family: ${researchFontFamily}; direction: rtl; margin-top: 10pt; margin-bottom: 8pt;">${displayTitle}</h2>`;
           }
           if (b.type === 'quote') {
-            return `<blockquote class="topic-quote" style="font-size: 16pt; font-family: 'Amiri', serif; direction: rtl;">${formatParagraphWithFootnotes(b.text)}</blockquote>`;
+            return `<blockquote class="topic-quote" style="font-size: 16pt; font-family: ${researchFontFamily}; direction: rtl;">${formatParagraphWithFootnotes(b.text)}</blockquote>`;
           }
-          return `<p class="topic-p" style="font-size: 16pt; font-weight: normal; text-align: justify; font-family: 'Amiri', serif; direction: rtl;">${formatParagraphWithFootnotes(b.text)}</p>`;
+          return `<p class="topic-p" style="font-size: 16pt; font-weight: normal; text-align: justify; font-family: ${researchFontFamily}; direction: rtl;">${formatParagraphWithFootnotes(b.text)}</p>`;
         }).join('');
 
         const footnotesHtml = (page.footnotes || []).map((fn) => `
@@ -257,7 +266,7 @@ class PDFGenerator {
 
         contentHtml = `
           <div class="inner-page">
-            ${!isContinuation ? `<h1 class="page-title">${page.title || d.title || 'الخاتمة'}</h1>` : `<div style="font-size: 13pt; color: #64748b; font-family: 'Amiri', serif; font-weight: bold; margin-bottom: 8px;">${page.title || 'الخاتمة (تابع)'}</div>`}
+            ${!isContinuation ? `<h1 class="page-title">${page.title || d.title || 'الخاتمة'}</h1>` : `<div style="font-size: 13pt; color: #64748b; font-family: ${researchFontFamily}; font-weight: bold; margin-bottom: 8px;">${page.title || 'الخاتمة (تابع)'}</div>`}
             ${openingText.trim() ? `<p class="body-text">${openingText}</p>` : ''}
             <div class="conclusion-points">
               ${points.map((pt, idx) => `
@@ -291,12 +300,12 @@ class PDFGenerator {
             <h1 class="page-title">${page.title}</h1>
             <div class="toc-table">
               <div class="toc-header-bar">
-                <span class="col-title">الموضوع</span>
-                <span class="col-page">الصفحة</span>
+                <span class="col-title" style="text-align: right;">الموضوع</span>
+                <span class="col-page" style="text-align: left;">الصفحة</span>
               </div>
               <div class="toc-rows">
                 ${(d.entries || []).map((entry) => `
-                  <a href="#${entry.anchorId || entry.targetId}" class="toc-row level-${entry.level}">
+                  <a href="#${entry.targetId || entry.anchorId}" class="toc-row level-${entry.level}">
                     <span class="entry-title">${entry.title}</span>
                     <span class="entry-leader"></span>
                     <span class="entry-page">${entry.pageNumberAr || entry.pageNumber}</span>
@@ -375,15 +384,15 @@ class PDFGenerator {
     }
     .page-body {
       position: absolute;
-      top: 24mm;
-      bottom: 24mm;
+      top: 25mm;
+      bottom: 25mm;
       right: 25mm;
       left: 25mm;
       z-index: 2;
       display: flex;
       flex-direction: column;
       box-sizing: border-box;
-      font-family: 'Amiri', serif;
+      font-family: ${researchFontFamily};
     }
     .page-footer {
       position: absolute;
@@ -394,7 +403,7 @@ class PDFGenerator {
       z-index: 2;
     }
     .page-number {
-      font-family: 'Amiri', serif;
+      font-family: ${researchFontFamily};
       font-size: 14pt;
       color: #334155;
     }
@@ -404,10 +413,10 @@ class PDFGenerator {
       display: flex;
       flex-direction: column;
       height: 100%;
-      font-family: 'Amiri', serif;
+      font-family: ${researchFontFamily};
     }
     .main-heading, .page-title, .topic-h1 {
-      font-family: 'Amiri', serif !important;
+      font-family: ${researchFontFamily} !important;
       font-size: 18pt !important; /* Exact 18pt Main Headings Centered */
       font-weight: 700 !important;
       text-align: center !important;
@@ -421,7 +430,7 @@ class PDFGenerator {
       direction: rtl !important;
     }
     .sub-heading, .subheading, .topic-h2, .topic-h3, .page-h2-subheading {
-      font-family: 'Amiri', serif !important;
+      font-family: ${researchFontFamily} !important;
       font-size: 17pt !important; /* Exact 17pt Subheadings Right-Aligned */
       font-weight: 700 !important;
       text-align: right !important;
@@ -433,7 +442,7 @@ class PDFGenerator {
       direction: rtl !important;
     }
     .body-text, .topic-p {
-      font-family: 'Amiri', serif !important;
+      font-family: ${researchFontFamily} !important;
       font-size: 16pt !important; /* Exact 16pt Body */
       font-weight: 400 !important;
       line-height: 1.55 !important;
@@ -444,7 +453,7 @@ class PDFGenerator {
       direction: rtl !important;
     }
     .inline-footnote-marker {
-      font-family: 'Amiri', serif !important;
+      font-family: ${researchFontFamily} !important;
       font-size: 13pt !important;
       font-weight: 700 !important;
       color: #000000 !important; /* Solid Black Footnote Marker */
@@ -483,16 +492,19 @@ class PDFGenerator {
       margin-left: auto;
     }
     .footnote-item {
-      font-family: 'Amiri', serif !important;
+      font-family: ${researchFontFamily} !important;
       font-size: 12pt !important; /* Exact 12pt Footnotes */
       line-height: 1.35 !important;
       margin-bottom: 4px;
-      text-align: justify;
+      text-align: right;
+      direction: rtl;
       color: #1e293b;
     }
     .fn-num {
       font-weight: bold;
       margin-left: 4px;
+      direction: rtl;
+      unicode-bidi: isolate;
       color: #000000 !important;
     }
 
@@ -509,6 +521,7 @@ class PDFGenerator {
       font-size: 16pt; /* Exact 16pt Body */
       line-height: 1.55;
       text-align: justify;
+      direction: rtl;
     }
     .pt-num {
       font-weight: bold;
@@ -521,24 +534,29 @@ class PDFGenerator {
       flex-direction: column;
       gap: 10px;
       margin-top: 8px;
+      direction: rtl;
     }
     .ref-row {
       display: flex;
       gap: 8px;
       font-size: 16pt; /* Exact 16pt Body */
       line-height: 1.55;
-      text-align: justify;
+      text-align: right;
+      direction: rtl;
     }
     .ref-num {
       font-weight: bold;
       color: #0f766e;
       min-width: 24px;
+      text-align: right;
+      direction: rtl;
     }
 
     /* Table of Contents */
     .toc-table {
       width: 100%;
       margin-top: 8px;
+      direction: rtl;
     }
     .toc-header-bar {
       display: flex;
@@ -546,24 +564,27 @@ class PDFGenerator {
       padding: 6px 12px;
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
-      font-family: 'Amiri', serif !important;
+      font-family: ${researchFontFamily} !important;
       font-weight: 700;
       font-size: 16pt;
       margin-bottom: 12px;
       color: #000000;
+      direction: rtl;
     }
     .toc-rows {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      direction: rtl;
     }
     .toc-row {
       display: flex;
       align-items: baseline;
       text-decoration: none;
       color: #0f172a;
-      font-family: 'Amiri', serif;
+      font-family: ${researchFontFamily};
       font-size: 16pt; /* Exact 16pt */
+      direction: rtl;
     }
     .toc-row.level-2 {
       padding-right: 18px;
@@ -573,6 +594,7 @@ class PDFGenerator {
     .entry-title {
       white-space: nowrap;
       font-weight: 600;
+      text-align: right;
     }
     .entry-leader {
       flex: 1;
@@ -582,7 +604,9 @@ class PDFGenerator {
     }
     .entry-page {
       font-weight: bold;
-      color: #0f766e;
+      color: #000000 !important;
+      text-align: left;
+      min-width: 24px;
     }
   </style>
 </head>

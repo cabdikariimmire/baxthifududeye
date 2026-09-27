@@ -36,7 +36,8 @@ class TOCBuilder {
       if (page.pageType === 'cover') return;
 
       // CRITICAL: skip continuation pages — they do NOT produce separate TOC entries
-      if (page.isContinuation === true) return;
+      // FIX: except for 'topic' pages which can contain new headings on continuation pages
+      if (page.pageType !== 'topic' && page.isContinuation === true) return;
 
       const targetId = page.anchorId || `page-${page.pageNumber}`;
 
@@ -73,7 +74,7 @@ class TOCBuilder {
                 });
               }
             } else if (bLevel === ACADEMIC_LEVELS.MATALAB) {
-              const mId = topicHeadingId;
+              const mId = block.structureNodeId || `matlab-${block.text}`;
               if (!seenHeadingIds.has(mId)) {
                 seenHeadingIds.add(mId);
                 toc.push({
@@ -85,7 +86,7 @@ class TOCBuilder {
                 });
               }
             } else if (bLevel === ACADEMIC_LEVELS.BRANCH || block.type === 'h2') {
-              const branchId = block.blockId || `${topicHeadingId}-branch-${bIdx}`;
+              const branchId = block.blockId || `branch-${block.text}`;
               if (!seenHeadingIds.has(branchId)) {
                 seenHeadingIds.add(branchId);
                 toc.push({

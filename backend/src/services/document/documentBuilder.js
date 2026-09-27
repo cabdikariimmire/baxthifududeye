@@ -4,9 +4,10 @@ const defaultBorders = require('./defaultBorders');
 const documentSpec = require('./documentSpec');
 const PaginationEngine = require('./paginationEngine');
 const { deduplicateReferences } = require('../references/deduplicator');
-const { normalizeReference } = require('../references/normalizer');
+const { normalizeReference, stripVolumeAndPage } = require('../references/normalizer');
 const { sortReferencesArabic, formatContinuousBibliography } = require('../references/arabicSort');
 const { resolveLogoUrl } = require('./logoResolver');
+const { getFontConfig } = require('../../config/researchFonts');
 const {
   detectAcademicLevel,
   hasMabhathLevel,
@@ -39,6 +40,9 @@ class DocumentBuilder {
     // 1. Resolve Border (Default is 'none')
     const borderId = options.borderId || res.borderId || 'none';
     const border = defaultBorders.getNormalizedBorder ? defaultBorders.getNormalizedBorder(borderId) : (defaultBorders.find((b) => b.borderId === borderId) || defaultBorders[0]);
+
+    // 2. Resolve Research Font (Default is current website font 'default' / Amiri)
+    const fontConfig = getFontConfig(options.fontFamily || res.fontFamily);
 
     // ==========================================
     // PAGE 1: الغلاف (Cover)
@@ -224,14 +228,33 @@ class DocumentBuilder {
 
         // Unpack any embedded branch heading lines inside paragraph blocks
         const finalNormalizedBlocks = [];
+        let branchIdx = 0;
+        const topicBranches = topic.branches || [];
+
         rawBlocksToNormalize.forEach((block) => {
           if (!block || !block.text) return;
           const textTrim = block.text.trim();
           if (!textTrim) return;
 
           const level = detectAcademicLevel(block);
-          if (level === ACADEMIC_LEVELS.MABHATH || level === ACADEMIC_LEVELS.MATALAB || level === ACADEMIC_LEVELS.BRANCH) {
-            finalNormalizedBlocks.push(block);
+          // If already a single-line heading without newlines, keep it as heading
+          if ((level === ACADEMIC_LEVELS.MABHATH || level === ACADEMIC_LEVELS.MATALAB || level === ACADEMIC_LEVELS.BRANCH) && !textTrim.includes('\n')) {
+            let sNodeId = block.structureNodeId;
+            let bId = block.blockId || block.id;
+            if (level === ACADEMIC_LEVELS.BRANCH) {
+              const matchedBranch = topicBranches.find(b => b.id === bId || b.id === sNodeId || b.title === textTrim || textTrim.includes(b.rawTitle || b.title)) || topicBranches[branchIdx++];
+              if (matchedBranch) {
+                sNodeId = matchedBranch.id;
+                bId = matchedBranch.id;
+              } else {
+                sNodeId = sNodeId || `branch-${topic.structureNodeId}-${branchIdx}`;
+                bId = bId || sNodeId;
+              }
+            } else {
+              sNodeId = sNodeId || topic.structureNodeId;
+              bId = bId || sNodeId;
+            }
+            finalNormalizedBlocks.push({ ...block, text: textTrim, structureNodeId: sNodeId, blockId: bId });
             return;
           }
 
@@ -263,7 +286,16 @@ class DocumentBuilder {
             const lineLevel = detectAcademicLevel(lineTrim);
             if (lineLevel === ACADEMIC_LEVELS.MABHATH || lineLevel === ACADEMIC_LEVELS.MATALAB || lineLevel === ACADEMIC_LEVELS.BRANCH) {
               flushPara();
-              finalNormalizedBlocks.push({ type: lineLevel, text: lineTrim });
+              let sNodeId = topic.structureNodeId;
+              let bId = `${topic.structureNodeId}-b-${finalNormalizedBlocks.length + 1}`;
+              if (lineLevel === ACADEMIC_LEVELS.BRANCH) {
+                const matchedBranch = topicBranches.find(b => b.title === lineTrim || lineTrim.includes(b.rawTitle || b.title)) || topicBranches[branchIdx++];
+                if (matchedBranch) {
+                  sNodeId = matchedBranch.id;
+                  bId = matchedBranch.id;
+                }
+              }
+              finalNormalizedBlocks.push({ type: lineLevel, text: lineTrim, structureNodeId: sNodeId, blockId: bId });
             } else {
               currentParagraphLines.push(line);
             }
@@ -272,31 +304,54 @@ class DocumentBuilder {
           flushPara();
         });
 
+        // Ensure child branches from research.structure.tree are present if defined
+        if (topicBranches.length > 0) {
+          const hasAnyBranchBlock = finalNormalizedBlocks.some(b => detectAcademicLevel(b) === ACADEMIC_LEVELS.BRANCH);
+          if (!hasAnyBranchBlock) {
+            topicBranches.forEach((tb) => {
+              finalNormalizedBlocks.push({
+                type: ACADEMIC_LEVELS.BRANCH,
+                text: tb.title,
+                structureNodeId: tb.id,
+                blockId: tb.id
+              });
+              if (tb.content) {
+                finalNormalizedBlocks.push({
+                  type: 'paragraph',
+                  text: tb.content
+                });
+              }
+            });
+          }
+        }
+
         topicBlocks = finalNormalizedBlocks;
 
-        allAcademicBlocks.push(...topicBlocks);
-        if (topicFootnotes && topicFootnotes.length > 0) {
-          allAcademicFootnotes.push(...topicFootnotes);
-        }
-      });
-
-      if (allAcademicBlocks.length > 0) {
-        // Paginate all topics across A4 pages deterministically as one continuous section
-        const paginatedTopics = paginationEngine.paginateSection({
+        // Paginate each topic individually starting on a fresh A4 page
+        const paginatedTopic = paginationEngine.paginateSection({
           sectionType: 'topic',
-          title: 'الأبحاث',
-          h1Title: 'الأبحاث',
-          topicId: 'academic-topics',
-          status: 'complete',
-          blocks: allAcademicBlocks,
-          footnotes: allAcademicFootnotes,
+          title: topic.title || topic.h1Title,
+          h1Title: topic.h1Title,
+          topicId: topic.structureNodeId || topic.topicId,
+          structureNodeId: topic.structureNodeId,
+          topicOrder: topicIdx + 1,
+          hasMabhath,
+          mabhathTitle: isNewMabhathGroup ? topic.mabhathTitle : null,
+          mabhathId: topic.mabhathId,
+          status: topic.status || 'complete',
+          blocks: topicBlocks,
+          footnotes: topicFootnotes,
           startPageNumber: currentPageNumber
         });
 
-        pages.push(...paginatedTopics.pages);
-        paginationDiagnostics.push(...(paginatedTopics.diagnostics || []));
-        currentPageNumber = paginatedTopics.nextPageNumber;
-      }
+        paginatedTopic.pages.forEach((p) => {
+          p.topicOrder = topic.matlabOrder || topic.order || (topicIdx + 1);
+        });
+
+        pages.push(...paginatedTopic.pages);
+        paginationDiagnostics.push(...(paginatedTopic.diagnostics || []));
+        currentPageNumber = paginatedTopic.nextPageNumber;
+      });
     }
 
     // ==========================================
@@ -352,7 +407,7 @@ class DocumentBuilder {
     if (res.references && res.references.length > 0) {
       rawReferences = res.references.map((r) => normalizeReference(r) || r);
     } else {
-      // Auto-extract references from all topic footnotes
+      // Auto-extract references from all topic footnotes (strictly stripping volume & page, no hallucination)
       const allFootnoteTexts = [];
       (res.topics || []).forEach((t) => {
         (t.footnotes || []).forEach((f) => {
@@ -362,29 +417,30 @@ class DocumentBuilder {
       });
 
       if (allFootnoteTexts.length > 0) {
-        const OpenRouterAdapter = require('../ai/OpenRouterAdapter');
-        const adapter = new OpenRouterAdapter();
-        const extracted = adapter._heuristicReferenceExtraction(allFootnoteTexts);
-        rawReferences = (extracted.references || []).map((r) => normalizeReference(r) || r);
+        rawReferences = allFootnoteTexts
+          .map((txt) => normalizeReference(txt))
+          .filter(Boolean);
       }
     }
 
     const deduplicated = deduplicateReferences(rawReferences);
-    const continuousReferences = formatContinuousBibliography(deduplicated, { ignoreAl: true });
+    const continuousReferences = formatContinuousBibliography(deduplicated, { ignoreAl: true, sortBy: 'book' });
 
-    const formattedRefs = continuousReferences.map((r, rIdx) => ({
-      order: rIdx + 1,
-      orderAr: toArabicIndicDigits(rIdx + 1),
-      book: r.book,
-      author: r.author,
-      publisher: r.publisher,
-      city: r.city,
-      edition: r.edition,
-      year: r.year,
-      displayText: [r.book, r.author, r.publisher, r.city, r.edition, r.year]
-        .filter(Boolean)
-        .join('، ')
-    }));
+    const formattedRefs = continuousReferences.map((r, rIdx) => {
+      const cleanDisplay = stripVolumeAndPage(r.displayText || r.book || '');
+
+      return {
+        order: rIdx + 1,
+        orderAr: toArabicIndicDigits(rIdx + 1),
+        book: cleanDisplay,
+        author: r.author ? stripVolumeAndPage(r.author) : '',
+        publisher: r.publisher ? stripVolumeAndPage(r.publisher) : '',
+        city: r.city ? stripVolumeAndPage(r.city) : '',
+        edition: r.edition ? stripVolumeAndPage(r.edition) : '',
+        year: r.year ? stripVolumeAndPage(r.year) : '',
+        displayText: cleanDisplay
+      };
+    });
 
     // Dynamic height-budgeted References pagination
     const refChunks = [];
@@ -495,6 +551,8 @@ class DocumentBuilder {
       totalPages: pages.length,
       borderId: border.borderId || border.id || borderId,
       border,
+      fontFamily: fontConfig.id,
+      fontConfig,
       pages,
       toc: tocEntries,
       paginationDiagnostics,

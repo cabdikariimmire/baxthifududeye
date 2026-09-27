@@ -48,6 +48,7 @@ describe('Admin Dashboard Security and Acceptance Tests', () => {
   after(async () => {
     await User.deleteMany({ email: { $in: ['admin-test@acceptance.com', 'normal-test@acceptance.com', 'user2-test@acceptance.com'] } });
     await ActivityLog.deleteMany({ userEmail: { $in: ['admin-test@acceptance.com', 'normal-test@acceptance.com'] } });
+    await mongoose.disconnect();
   });
 
   it('1. requireAdmin middleware strictly blocks normal users with 403 Forbidden', async () => {
@@ -145,8 +146,8 @@ describe('Admin Dashboard Security and Acceptance Tests', () => {
 
   it('5. updateUserRole strictly prevents removing the last active administrator', async () => {
     // If only one admin exists in database, demoting them must fail
-    // Temporarily ensure adminUser is the only admin
-    await User.updateMany({ _id: { $ne: adminUser._id }, role: 'admin' }, { role: 'user' });
+    const realSuperAdmin = await User.findOne({ email: 'abdikrimmireahmd@gmail.com' });
+    await User.updateMany({ _id: { $ne: adminUser._id }, role: { $in: ['admin', 'super_admin'] } }, { role: 'user' });
 
     let statusCode = null;
     let responseBody = null;
@@ -174,6 +175,11 @@ describe('Admin Dashboard Security and Acceptance Tests', () => {
       if (err) throw err;
     });
 
+    // Restore real super admin immediately
+    if (realSuperAdmin) {
+      await User.updateOne({ _id: realSuperAdmin._id }, { role: 'super_admin' });
+    }
+
     assert.equal(statusCode, 400, 'Must reject demoting last admin with 400 Bad Request');
     assert.equal(responseBody.code, 'CANNOT_REMOVE_LAST_ADMIN');
 
@@ -181,6 +187,7 @@ describe('Admin Dashboard Security and Acceptance Tests', () => {
     const checkUser = await User.findById(adminUser._id);
     assert.equal(checkUser.role, 'admin');
   });
+
 
   it('6. updateUserRole successfully updates role when multiple admins exist', async () => {
     // Create a second admin

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, Award } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import { paginateConclusionContent } from '../../../utils/paginationHelper';
 
 const Step6Conclusion = ({ research, onSave, onNext, onPrev }) => {
@@ -60,9 +61,9 @@ const Step6Conclusion = ({ research, onSave, onNext, onPrev }) => {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Left Column: Conclusion Form (lg: 7 cols) */}
-      <div className="lg:col-span-7 space-y-6">
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-xl font-bold text-slate-900 font-cairo flex items-center gap-2">
@@ -168,9 +169,9 @@ const Step6Conclusion = ({ research, onSave, onNext, onPrev }) => {
         </form>
       </div>
 
-      {/* Right Column: Live A4 Conclusion Preview (lg: 5 cols) */}
-      <div className="lg:col-span-5 flex flex-col items-center space-y-6">
-        <div className="w-full flex items-center justify-between px-2">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <span className="font-bold text-sm text-slate-700 font-cairo">
             معاينة صفحة الخاتمة (A4)
           </span>
@@ -179,21 +180,22 @@ const Step6Conclusion = ({ research, onSave, onNext, onPrev }) => {
           </span>
         </div>
 
-        {paginatedConclusionPages.map((pageItem, pIdx) => (
-          <div key={pIdx} className="w-full flex flex-col items-center">
-            {paginatedConclusionPages.length > 1 && (
-              <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
-                صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
-              </div>
-            )}
-            <div className="bg-slate-200/80 p-4 rounded-xl shadow-inner w-full flex justify-center overflow-x-auto">
+        <A4ScaleWrapper pageCount={paginatedConclusionPages.length}>
+          {paginatedConclusionPages.map((pageItem, pIdx) => (
+            <div key={pIdx} className="w-full flex flex-col items-center">
+              {paginatedConclusionPages.length > 1 && (
+                <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
+                  صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
+                </div>
+              )}
               <A4Page
                 page={pageItem}
                 borderId={research?.borderId}
+                fontFamily={research?.fontFamily}
               />
             </div>
-          </div>
-        ))}
+          ))}
+        </A4ScaleWrapper>
       </div>
     </div>
   );

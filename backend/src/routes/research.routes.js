@@ -42,6 +42,7 @@ router.use(authenticate);
 
 router.post('/', validate(createResearchSchema), researchController.createResearch);
 router.get('/', researchController.listResearches);
+router.get('/fonts', researchController.getResearchFonts);
 router.get('/:id', researchController.getResearchById);
 router.patch('/:id', researchController.updateResearch);
 router.delete('/:id', researchController.deleteResearch);
@@ -65,11 +66,10 @@ router.post('/:id/topics/:topicId', researchController.saveTopic);
 router.post('/:id/references/generate', researchController.generateReferences);
 router.post('/:id/toc/generate', researchController.generateTOC);
 
-// Preview, PDF & DOCX
+// Preview & PDF Export (Strictly PDF-Only)
 router.get('/:id/preview', researchController.getPreview);
 router.post('/:id/pdf', researchController.exportPDF);
 router.get('/:id/pdf/html', researchController.getPrintableHTML);
-router.post('/:id/docx', researchController.exportDOCX);
-router.get('/:id/docx', researchController.exportDOCX);
+router.get('/:id/printable', researchController.getPrintableHTML);
 
 module.exports = router;

@@ -9,9 +9,13 @@ import {
   ACADEMIC_LEVELS
 } from '../../utils/academicHierarchy';
 import CoverCanvasEditor from '../cover/CoverCanvasEditor';
+import { getFontConfig } from '../../utils/researchFonts';
 
-const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
+const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick, fontFamily }) => {
   if (!page) return null;
+
+  const fontConfig = getFontConfig(fontFamily || page?.fontFamily || page?.data?.fontFamily || 'default');
+  const researchFontFamily = fontConfig.cssValue;
 
   const renderContent = () => {
     switch (page.pageType) {
@@ -53,17 +57,19 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
         const isContinuation = page.isContinuation;
 
         return (
-          <div className="flex flex-col h-full font-amiri">
+          <div className="flex flex-col h-full" dir="rtl" style={{ direction: 'rtl', textAlign: 'right', fontFamily: researchFontFamily }}>
             {!isContinuation ? (
-              <h1 className="main-heading page-h1-heading mb-3">{page.title || 'المقدمة وخطة البحث'}</h1>
+              <h1 className="main-heading page-h1-heading mb-3" dir="rtl" style={{ direction: 'rtl', textAlign: 'center', fontFamily: researchFontFamily }}>
+                {page.title || 'المقدمة وخطة البحث'}
+              </h1>
             ) : (
-              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo">
+              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo text-right" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
                 {page.title || 'المقدمة وخطة البحث'}
               </div>
             )}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
               {paragraphs.map((para, idx) => (
-                <p key={idx} className="page-body-p research-body leading-[1.5] text-slate-900 mb-1">
+                <p key={idx} className="page-body-p research-body leading-[1.5] text-slate-900 mb-1" dir="rtl" style={{ direction: 'rtl', textAlign: 'justify' }}>
                   {para}
                 </p>
               ))}
@@ -120,15 +126,17 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
                     {seg.marker && (
                       <span
                         className="inline-footnote-marker"
+                        dir="rtl"
                         style={{
                           color: '#000000',
                           fontWeight: 'bold',
-                          fontFamily: 'Amiri, serif',
+                          fontFamily: researchFontFamily,
                           fontSize: '13pt',
                           margin: '0 3px',
                           display: 'inline-block',
                           whiteSpace: 'nowrap',
-                          direction: 'rtl'
+                          direction: 'rtl',
+                          unicodeBidi: 'isolate'
                         }}
                       >
                         {seg.marker}
@@ -158,8 +166,8 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
 
           const level = detectAcademicLevel(block);
 
-          if (level === ACADEMIC_LEVELS.MABHATH || level === ACADEMIC_LEVELS.MATALAB || level === ACADEMIC_LEVELS.BRANCH) {
-            normalizedElements.push({ type: level, text: textTrim });
+          if ((level === ACADEMIC_LEVELS.MABHATH || level === ACADEMIC_LEVELS.MATALAB || level === ACADEMIC_LEVELS.BRANCH) && !textTrim.includes('\n')) {
+            normalizedElements.push({ type: level, text: textTrim, structureNodeId: block.structureNodeId, blockId: block.blockId });
             return;
           }
 
@@ -192,7 +200,7 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
             const lineLevel = detectAcademicLevel(lineTrim);
             if (lineLevel === ACADEMIC_LEVELS.MABHATH || lineLevel === ACADEMIC_LEVELS.MATALAB || lineLevel === ACADEMIC_LEVELS.BRANCH) {
               flushParagraph();
-              normalizedElements.push({ type: lineLevel, text: lineTrim });
+              normalizedElements.push({ type: lineLevel, text: lineTrim, structureNodeId: block.structureNodeId, blockId: block.blockId });
             } else {
               currentParagraphLines.push(line);
             }
@@ -202,8 +210,8 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
         });
 
         return (
-          <div className="flex flex-col justify-between h-full font-amiri">
-            <div className="flex-1">
+          <div className="flex flex-col justify-between h-full" dir="rtl" style={{ direction: 'rtl', textAlign: 'right', fontFamily: researchFontFamily }}>
+            <div className="flex-1" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
               {normalizedElements.map((el, idx) => {
                 const elLevel = detectAcademicLevel(el);
                 const displayTitle = el.text;
@@ -214,12 +222,14 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
                   return (
                     <h1
                       key={idx}
+                      id={el.structureNodeId || el.blockId || undefined}
                       className="main-heading page-h1-heading mb-2"
+                      dir="rtl"
                       style={{
                         fontSize: '18pt',
                         fontWeight: 'bold',
                         textAlign: 'center',
-                        fontFamily: 'Amiri, serif',
+                        fontFamily: researchFontFamily,
                         color: '#0f172a',
                         direction: 'rtl',
                         display: 'block',
@@ -240,12 +250,14 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
                   return (
                     <h2
                       key={idx}
+                      id={el.structureNodeId || el.blockId || undefined}
                       className="sub-heading page-h2-subheading mt-3 mb-1.5"
+                      dir="rtl"
                       style={{
                         fontSize: '17pt',
                         fontWeight: 'bold',
                         textAlign: 'right',
-                        fontFamily: 'Amiri, serif',
+                        fontFamily: researchFontFamily,
                         color: '#0f172a',
                         direction: 'rtl',
                         display: 'block',
@@ -264,10 +276,12 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
                     <blockquote
                       key={idx}
                       className="border-r-4 border-teal-800 bg-amber-50/50 p-2 pr-4 my-2 italic leading-relaxed"
+                      dir="rtl"
                       style={{
                         fontSize: '16pt',
-                        fontFamily: 'Amiri, serif',
-                        direction: 'rtl'
+                        fontFamily: researchFontFamily,
+                        direction: 'rtl',
+                        textAlign: 'right'
                       }}
                     >
                       {renderFormattedTopicText(el.text)}
@@ -280,11 +294,12 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
                   <p
                     key={idx}
                     className="page-body-p mb-2"
+                    dir="rtl"
                     style={{
                       fontSize: '16pt',
                       fontWeight: 'normal',
                       textAlign: 'justify',
-                      fontFamily: 'Amiri, serif',
+                      fontFamily: researchFontFamily,
                       color: '#0f172a',
                       lineHeight: '1.55',
                       direction: 'rtl',
@@ -300,28 +315,31 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
 
             {/* Page-Based Footnotes Section with Short Separator */}
             {page.footnotes && page.footnotes.length > 0 && (
-              <div className="page-footnotes-container mt-3 pt-1">
-                <div className="page-footnotes-separator"></div>
-                <div className="flex flex-col gap-1">
+              <div className="page-footnotes-container mt-3 pt-1" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
+                <div className="page-footnotes-separator" style={{ marginRight: 0, marginLeft: 'auto' }}></div>
+                <div className="flex flex-col gap-1" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
                   {page.footnotes.map((fn, idx) => (
                     <div
                       key={idx}
                       className="page-footnote-item"
+                      dir="rtl"
                       style={{
                         fontSize: '12pt',
-                        fontFamily: 'Amiri, serif',
+                        fontFamily: researchFontFamily,
                         color: '#1e293b',
                         lineHeight: '1.35',
-                        textAlign: 'justify'
+                        textAlign: 'right',
+                        direction: 'rtl'
                       }}
                     >
                       <span
-                        className="font-bold ml-1"
-                        style={{ color: '#000000', fontWeight: 'bold' }}
+                        className="font-bold ml-1.5"
+                        dir="rtl"
+                        style={{ color: '#000000', fontWeight: 'bold', direction: 'rtl', unicodeBidi: 'isolate' }}
                       >
                         {fn.marker || `(${fn.numberAr || fn.number})`}
                       </span>
-                      <span>{fn.text}</span>
+                      <span dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>{fn.text}</span>
                     </div>
                   ))}
                 </div>
@@ -348,28 +366,34 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
         }
 
         return (
-          <div className="flex flex-col h-full font-amiri">
+          <div className="flex flex-col h-full" dir="rtl" style={{ direction: 'rtl', textAlign: 'right', fontFamily: researchFontFamily }}>
             {!isContinuation ? (
-              <h1 className="page-h1-heading mb-4 text-slate-900">{page.title || d.title || 'الخاتمة'}</h1>
+              <h1 className="page-h1-heading mb-4 text-slate-900" dir="rtl" style={{ direction: 'rtl', textAlign: 'center', fontFamily: researchFontFamily }}>
+                {page.title || d.title || 'الخاتمة'}
+              </h1>
             ) : (
-              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo">
+              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo text-right" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
                 {page.title || 'الخاتمة'}
               </div>
             )}
 
             {/* Unnumbered Introductory Paragraph (16pt Amiri, exact normal paragraph style) */}
             {!isContinuation && openingParagraph && (
-              <p className="page-body-p mb-3 text-slate-900">
+              <p className="page-body-p mb-3 text-slate-900" dir="rtl" style={{ direction: 'rtl', textAlign: 'justify' }}>
                 {openingParagraph}
               </p>
             )}
 
             {/* Structurally Numbered Results List (16pt Amiri) */}
-            <div className="flex flex-col gap-2.5 mt-1">
+            <div className="flex flex-col gap-2.5 mt-1" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
               {points.map((pt, idx) => (
-                <div key={idx} className="page-body-p flex gap-2 items-start text-slate-900">
-                  <span className="font-bold text-teal-800 flex-shrink-0">.{idx + 1}</span>
-                  <span className="flex-1">{pt}</span>
+                <div key={idx} className="page-body-p flex gap-2 items-start text-slate-900" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
+                  <span className="font-bold text-teal-800 flex-shrink-0" dir="rtl" style={{ direction: 'rtl' }}>
+                    .{idx + 1}
+                  </span>
+                  <span className="flex-1 text-right" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
+                    {pt}
+                  </span>
                 </div>
               ))}
             </div>
@@ -381,19 +405,38 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
         const d = page.data || {};
         const isContinuation = page.isContinuation;
         return (
-          <div className="flex flex-col h-full font-amiri">
+          <div className="flex flex-col h-full" dir="rtl" style={{ direction: 'rtl', textAlign: 'right', fontFamily: researchFontFamily }}>
             {!isContinuation ? (
-              <h1 className="page-h1-heading mb-4 text-slate-900">{page.title || 'المصادر والمراجع'}</h1>
+              <h1 className="main-heading page-h1-heading mb-4 text-slate-900" dir="rtl" style={{ direction: 'rtl', textAlign: 'center', fontFamily: researchFontFamily }}>
+                {page.title || 'المصادر والمراجع'}
+              </h1>
             ) : (
-              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo">
+              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo text-right" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
                 {page.title || 'المصادر والمراجع'}
               </div>
             )}
-            <div className="flex flex-col gap-2 mt-2">
+            <div className="flex flex-col gap-2 mt-2" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
               {(d.references || []).map((ref, idx) => (
-                <div key={idx} className="page-body-p flex gap-2">
-                  <span className="font-bold text-teal-800">{ref.orderAr || ref.order}.</span>
-                  <span>{ref.displayText || ref.book}</span>
+                <div
+                  key={idx}
+                  className="page-body-p flex gap-2 items-baseline text-right"
+                  dir="rtl"
+                  style={{ direction: 'rtl', textAlign: 'right' }}
+                >
+                  <span
+                    className="font-bold text-teal-800 flex-shrink-0"
+                    dir="rtl"
+                    style={{ direction: 'rtl', minWidth: '24px', textAlign: 'right' }}
+                  >
+                    {ref.orderAr || ref.order}.
+                  </span>
+                  <span
+                    className="flex-1 text-right"
+                    dir="rtl"
+                    style={{ direction: 'rtl', textAlign: 'right' }}
+                  >
+                    {ref.displayText || ref.book}
+                  </span>
                 </div>
               ))}
             </div>
@@ -405,29 +448,45 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
         const d = page.data || {};
         const isContinuation = page.isContinuation;
         return (
-          <div className="flex flex-col h-full font-amiri">
+          <div className="flex flex-col h-full" dir="rtl" style={{ direction: 'rtl', fontFamily: researchFontFamily }}>
             {!isContinuation ? (
-              <h1 className="page-h1-heading mb-4 text-slate-900">{page.title || 'فهرس الموضوعات'}</h1>
+              <h1 className="main-heading page-h1-heading mb-4 text-slate-900" dir="rtl" style={{ direction: 'rtl', textAlign: 'center', fontFamily: researchFontFamily }}>
+                {page.title || 'فهرس الموضوعات'}
+              </h1>
             ) : (
-              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo">
+              <div className="text-xs font-bold text-slate-400 mb-2 font-cairo text-right" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
                 {page.title || 'فهرس الموضوعات'}
               </div>
             )}
-            <div className="toc-container-preview">
-              <div className="flex justify-between items-center bg-slate-100 border border-slate-300 px-4 py-1.5 font-bold text-[16pt] mb-3 text-teal-900">
-                <span>الموضوع</span>
-                <span>الصفحة</span>
+            <div className="toc-container-preview" dir="rtl" style={{ direction: 'rtl', width: '100%' }}>
+              <div
+                className="flex justify-between items-center bg-slate-100 border border-slate-300 px-4 py-1.5 font-bold text-[16pt] mb-3 text-teal-900"
+                dir="rtl"
+                style={{ direction: 'rtl' }}
+              >
+                <span className="text-right" style={{ textAlign: 'right' }}>الموضوع</span>
+                <span className="text-left" style={{ textAlign: 'left' }}>الصفحة</span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2" dir="rtl" style={{ direction: 'rtl' }}>
                 {(d.entries || []).map((entry, idx) => (
                   <div
                     key={idx}
-                    onClick={() => onTOCLinkClick && onTOCLinkClick(entry.pageNumber)}
-                    className={`toc-row-preview ${entry.level === 2 ? 'pr-6 text-[15pt] text-slate-700' : 'font-bold text-[16pt]'}`}
+                    onClick={() => onTOCLinkClick && onTOCLinkClick(entry.pageNumber, entry.targetId)}
+                    className={`toc-row-preview cursor-pointer hover:text-teal-700 transition-colors ${entry.level === 2 ? 'pr-6 text-[15pt] text-slate-700' : 'font-bold text-[16pt]'}`}
+                    dir="rtl"
+                    style={{ direction: 'rtl', width: '100%', display: 'flex', alignItems: 'baseline' }}
                   >
-                    <span className="whitespace-nowrap">{entry.title}</span>
+                    <span className="text-right whitespace-nowrap" dir="rtl" style={{ textAlign: 'right' }}>
+                      {entry.title}
+                    </span>
                     <span className="toc-leader-dots"></span>
-                    <span className="font-bold font-amiri text-teal-800">{entry.pageNumberAr || entry.pageNumber}</span>
+                    <span
+                      className="font-bold font-amiri text-black text-left"
+                      dir="ltr"
+                      style={{ textAlign: 'left', minWidth: '24px' }}
+                    >
+                      {entry.pageNumberAr || entry.pageNumber}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -437,14 +496,14 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
       }
 
       default:
-        return <div className="page-body-p">{page.title}</div>;
+        return <div className="page-body-p" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>{page.title}</div>;
     }
   };
 
   const isCover = page.pageType === 'cover';
 
   return (
-    <div className="a4-sheet" id={page.anchorId}>
+    <div className="a4-sheet" id={page.anchorId} dir="rtl" style={{ direction: 'rtl', ...(!isCover && { fontFamily: researchFontFamily, '--research-font': researchFontFamily }) }}>
       <BorderFrame borderSvg={borderSvg} borderId={borderId} />
       {isCover ? (
         <div className="a4-cover-layer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2 }}>
@@ -452,8 +511,18 @@ const A4Page = ({ page, borderSvg, borderId = 'none', onTOCLinkClick }) => {
         </div>
       ) : (
         <>
-          <div className="a4-content-layer">{renderContent()}</div>
-          <div className="a4-footer-layer">
+          <div className="a4-content-layer" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
+            {renderContent()}
+          </div>
+          <div
+            className="a4-footer-layer"
+            dir="rtl"
+            style={{
+              direction: 'rtl',
+              fontFamily: researchFontFamily,
+              '--research-font': researchFontFamily
+            }}
+          >
             <span>{page.pageNumberAr || page.pageNumber}</span>
           </div>
         </>

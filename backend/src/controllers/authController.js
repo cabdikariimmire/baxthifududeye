@@ -367,6 +367,66 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+/**
+ * 9. Change Password (Authenticated User)
+ */
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        code: 'VALIDATION_ERROR',
+        message: 'يرجى إدخال كلمة المرور الحالية وكلمة المرور الجديدة'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        code: 'PASSWORD_TOO_SHORT',
+        message: 'يجب ألا تقل كلمة المرور الجديدة عن 8 أحرف'
+      });
+    }
+
+    const user = await User.findById(req.user._id).select('+passwordHash');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        code: 'USER_NOT_FOUND',
+        message: 'المستخدم غير موجود'
+      });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_CURRENT_PASSWORD',
+        message: 'كلمة المرور الحالية غير صحيحة'
+      });
+    }
+
+    user.passwordHash = await User.hashPassword(newPassword);
+    await user.save();
+
+    ActivityLog.record({
+      userId: user._id,
+      userName: user.name,
+      userEmail: user.email,
+      action: 'password_changed',
+      details: 'قام المستخدم بتغيير كلمة المرور من صفحة الحساب'
+    });
+
+    return res.json({
+      success: true,
+      message: 'تم تغيير كلمة المرور بنجاح'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   verifyEmail,
@@ -375,5 +435,6 @@ module.exports = {
   logout,
   getMe,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  changePassword
 };

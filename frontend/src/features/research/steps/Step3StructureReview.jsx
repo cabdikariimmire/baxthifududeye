@@ -20,6 +20,7 @@ import {
   formatAcademicHeadingTitle,
   flattenSemanticTreeToTopics
 } from '../../../utils/academicHierarchy';
+import ArabicTypoInput from '../../../components/ArabicTypoInput';
 
 const Step3StructureReview = ({ research, onSave, onNext, onPrev }) => {
   const researchTitle = research?.cover?.title || research?.title || '';
@@ -452,12 +453,13 @@ const Step3StructureReview = ({ research, onSave, onNext, onPrev }) => {
                         <span>المبحث {mbOrdinal}</span>
                       </span>
 
-                      <input
+                      <ArabicTypoInput
                         type="text"
                         value={cleanMbTitle}
                         onChange={(e) => handleMabhathTitleChange(mbIdx, e.target.value)}
                         className="input-field font-bold font-amiri text-lg text-teal-950 bg-white border-teal-300 focus:border-teal-700 text-center flex-1"
                         placeholder="عنوان المبحث الرئيسي..."
+                        projectContext={researchTitle}
                       />
                     </div>
 
@@ -496,12 +498,13 @@ const Step3StructureReview = ({ research, onSave, onNext, onPrev }) => {
                                 المطلب {matlabOrdinal}
                               </span>
 
-                              <input
+                              <ArabicTypoInput
                                 type="text"
                                 value={cleanMatlabTitle}
                                 onChange={(e) => handleMatlabTitleChange(mbIdx, mIdx, e.target.value)}
                                 className="input-field font-bold font-amiri text-base text-slate-900 bg-slate-50/50 border-slate-300 focus:bg-white flex-1"
                                 placeholder="عنوان المطلب..."
+                                projectContext={[researchTitle, cleanMbTitle]}
                               />
                             </div>
 
@@ -527,7 +530,7 @@ const Step3StructureReview = ({ research, onSave, onNext, onPrev }) => {
                                     الفرع {branchOrdinal}:
                                   </span>
 
-                                  <input
+                                  <ArabicTypoInput
                                     type="text"
                                     value={cleanBranchTitle}
                                     onChange={(e) =>
@@ -535,6 +538,7 @@ const Step3StructureReview = ({ research, onSave, onNext, onPrev }) => {
                                     }
                                     className="input-field text-sm font-amiri bg-slate-50 border-slate-200 focus:bg-white py-1.5"
                                     placeholder="عنوان الفرع..."
+                                    projectContext={[researchTitle, cleanMbTitle, cleanMatlabTitle]}
                                   />
 
                                   <button
@@ -600,12 +604,13 @@ const Step3StructureReview = ({ research, onSave, onNext, onPrev }) => {
                         المطلب {matlabOrdinal}:
                       </span>
 
-                      <input
+                      <ArabicTypoInput
                         type="text"
                         value={cleanMatlabTitle}
                         onChange={(e) => handleMatlabTitleChange(0, mIdx, e.target.value)}
                         className="input-field font-bold font-amiri text-base bg-white border-slate-300 focus:border-teal-700 flex-1"
                         placeholder="عنوان المطلب الرئيسي..."
+                        projectContext={researchTitle}
                       />
                     </div>
 

@@ -47,6 +47,35 @@ function measureSync(opts) {
   return result;
 }
 
+function computeFallback(opts) {
+  const text = opts?.text || '';
+  const fontSizePt = opts?.fontSizePt || 16;
+  const widthPt = opts?.widthPt || (opts?.widthMm ? (opts.widthMm / 25.4) * 72 : 453.54);
+  const lineHeight = opts?.lineHeight || 1.55;
+  const lineHeightPt = lineHeight * fontSizePt;
+  const charsPerLine = Math.max(10, Math.floor(widthPt / (fontSizePt * 0.52)));
+  const words = text.split(/\s+/).filter(Boolean);
+  let lines = 1;
+  let curLen = 0;
+  for (const w of words) {
+    if (curLen + w.length + 1 > charsPerLine) {
+      lines++;
+      curLen = w.length;
+    } else {
+      curLen += w.length + 1;
+    }
+  }
+  const heightPt = lines * lineHeightPt;
+  return {
+    widthPt,
+    heightPt,
+    lineCount: lines,
+    lineHeightPt,
+    measuredWidthPx: widthPt * (96 / 72),
+    measuredHeightPx: heightPt * (96 / 72)
+  };
+}
+
 /**
  * Measure a set of texts in one isolated worker/browser lifecycle. Pagination
  * uses this to avoid launching Chromium once per paragraph.
@@ -54,15 +83,22 @@ function measureSync(opts) {
 function measureManySync(optionsList) {
   const missing = optionsList.filter((opts) => !resultCache.has(cacheKey(opts)));
   if (missing.length > 0) {
-    const measured = runWorker({ batch: missing });
-    if (!Array.isArray(measured) || measured.length !== missing.length) {
-      throw new Error(`Browser measurement worker returned ${measured?.length || 0} results for ${missing.length} requests`);
+    try {
+      const measured = runWorker({ batch: missing });
+      if (!Array.isArray(measured) || measured.length !== missing.length) {
+        throw new Error(`Browser measurement worker returned ${measured?.length || 0} results for ${missing.length} requests`);
+      }
+      missing.forEach((opts, index) => {
+        resultCache.set(cacheKey(opts), validateMeasurement(measured[index], opts));
+      });
+    } catch (err) {
+      // Fallback gracefully without breaking pagination
+      missing.forEach((opts) => {
+        resultCache.set(cacheKey(opts), computeFallback(opts));
+      });
     }
-    missing.forEach((opts, index) => {
-      resultCache.set(cacheKey(opts), validateMeasurement(measured[index], opts));
-    });
   }
-  return optionsList.map((opts) => resultCache.get(cacheKey(opts)));
+  return optionsList.map((opts) => resultCache.get(cacheKey(opts)) || computeFallback(opts));
 }
 
 module.exports = { measureSync, measureManySync };

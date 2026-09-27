@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ListOrdered, ArrowLeft, ArrowRight, RefreshCw, CheckCircle2, Navigation } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import { paginateTOCContent } from '../../../utils/paginationHelper';
 import api from '../../../services/api';
 
@@ -69,9 +70,9 @@ const Step8TOC = ({ research, onSave, onNext, onPrev, onNavigateToPage }) => {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Left Column: TOC Info and Clickable List (lg: 6 cols) */}
-      <div className="lg:col-span-6 space-y-6">
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
@@ -113,7 +114,7 @@ const Step8TOC = ({ research, onSave, onNext, onPrev, onNavigateToPage }) => {
             {tocEntries.map((entry, idx) => (
               <div
                 key={idx}
-                onClick={() => onNavigateToPage && onNavigateToPage(entry.pageNumber)}
+                onClick={() => onNavigateToPage && onNavigateToPage(entry.pageNumber, entry.targetId)}
                 className={`p-3 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/40 cursor-pointer transition-all flex items-center justify-between ${
                   entry.level === 2 ? 'pr-6 bg-slate-50 text-slate-700 text-xs' : 'bg-white font-semibold text-slate-900 text-sm'
                 }`}
@@ -155,9 +156,9 @@ const Step8TOC = ({ research, onSave, onNext, onPrev, onNavigateToPage }) => {
         </div>
       </div>
 
-      {/* Right Column: Live A4 TOC Preview (lg: 6 cols) */}
-      <div className="lg:col-span-6 flex flex-col items-center space-y-6">
-        <div className="w-full flex items-center justify-between px-2">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <span className="font-bold text-sm text-slate-700 font-cairo">
             معاينة صفحة فهرس الموضوعات (A4)
           </span>
@@ -166,22 +167,23 @@ const Step8TOC = ({ research, onSave, onNext, onPrev, onNavigateToPage }) => {
           </span>
         </div>
 
-        {paginatedTOCPages.map((pageItem, pIdx) => (
-          <div key={pIdx} className="w-full flex flex-col items-center">
-            {paginatedTOCPages.length > 1 && (
-              <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
-                صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
-              </div>
-            )}
-            <div className="bg-slate-200/80 p-4 rounded-xl shadow-inner w-full flex justify-center overflow-x-auto">
+        <A4ScaleWrapper pageCount={paginatedTOCPages.length}>
+          {paginatedTOCPages.map((pageItem, pIdx) => (
+            <div key={pIdx} className="w-full flex flex-col items-center">
+              {paginatedTOCPages.length > 1 && (
+                <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
+                  صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
+                </div>
+              )}
               <A4Page
                 page={pageItem}
                 borderId={research?.borderId}
-                onTOCLinkClick={(pageNum) => onNavigateToPage && onNavigateToPage(pageNum)}
+                fontFamily={research?.fontFamily}
+                onTOCLinkClick={(pageNum, targetId) => onNavigateToPage && onNavigateToPage(pageNum, targetId)}
               />
             </div>
-          </div>
-        ))}
+          ))}
+        </A4ScaleWrapper>
       </div>
     </div>
   );

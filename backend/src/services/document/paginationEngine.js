@@ -818,11 +818,35 @@ class PaginationEngine {
     commitPage();
 
     const assignedIds = new Set(pages.flatMap((page) => (page.footnotes || []).map((fn) => fn.footnoteId)));
-    const unassignedFootnoteIds = footnotes
-      .map((fn, index) => fn.footnoteId || fn.id || `fn-${topicId || 't'}-${index + 1}`)
-      .filter((id) => !assignedIds.has(id));
-    if (unassignedFootnoteIds.length > 0) {
-      this.recordDiagnostic({ page: pageNumber, reason: 'unassigned-footnotes', blockId: unassignedFootnoteIds.join(',') });
+    const unassignedFootnotes = footnotes.filter((fn, index) => {
+      const id = fn.footnoteId || fn.id || `fn-${topicId || 't'}-${index + 1}`;
+      return !assignedIds.has(id);
+    });
+
+    if (unassignedFootnotes.length > 0 && pages.length > 0) {
+      const targetPage = pages[0];
+      targetPage.footnotes = targetPage.footnotes || [];
+      unassignedFootnotes.forEach((fn, index) => {
+        const id = fn.footnoteId || fn.id || `fn-${topicId || 't'}-${index + 1}`;
+        const localNum = targetPage.footnotes.length + 1;
+        const origNum = fn.originalNumber || fn.number || localNum;
+        targetPage.footnotes.push({
+          id,
+          footnoteId: id,
+          number: localNum,
+          numberAr: toArabicIndicDigits(localNum),
+          marker: `(${localNum})`,
+          markerAr: `(${toArabicIndicDigits(localNum)})`,
+          text: fn.text || '',
+          source: fn.source || {},
+          originalNumber: origNum
+        });
+      });
+    }
+
+    if (unassignedFootnotes.length > 0) {
+      const unassignedFootnoteIds = unassignedFootnotes.map((fn, index) => fn.footnoteId || fn.id || `fn-${topicId || 't'}-${index + 1}`);
+      this.recordDiagnostic({ page: pageNumber, reason: 'unassigned-footnotes-assigned-to-page', blockId: unassignedFootnoteIds.join(',') });
     }
 
     return {

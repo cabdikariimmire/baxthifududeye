@@ -25,6 +25,7 @@ const {
 } = require('../document/academicHierarchy');
 const env = require('../../config/env');
 const aiConfig = require('../../config/ai');
+const { stripVolumeAndPage } = require('../references/normalizer');
 
 class OpenRouterAdapter extends AIAdapter {
   constructor(customConfig = {}) {
@@ -337,53 +338,27 @@ class OpenRouterAdapter extends AIAdapter {
   _heuristicReferenceExtraction(footnotes) {
     const references = [];
 
-    footnotes.forEach((f, idx) => {
-      const rawText = (typeof f === 'string' ? f : f.text || '').trim();
+    (footnotes || []).forEach((f, idx) => {
+      const rawText = (typeof f === 'string' ? f : f.text || f.rawText || '').trim();
       if (!rawText) return;
 
       // Clean footnote from leading numbers: (1), [1], 1., etc.
-      let cleaned = rawText.replace(/^[\(\[\{]?\d+[\)\]\}]?[\.\:\-\s]*/, '').trim();
+      let cleaned = rawText.replace(/^\s*(?:\(\d+\)|\[\d+\]|\d+[\.\-\)]\s*)/, '').trim();
 
-      // Split parts by comma or arabic comma
-      const parts = cleaned.split(/[,،]/).map(p => p.trim()).filter(Boolean);
-
-      let book = parts[0] || cleaned;
-      let author = parts.length > 1 ? parts[1] : '';
-      let publisher = '';
-      let city = '';
-      let edition = '';
-      let year = '';
-
-      // Project rule: Strip volume (ج / جزء) and page (ص / صـ / صفحة) numbers
-      parts.forEach((part) => {
-        // Strip volume & page markers
-        if (part.match(/^(ج|جزء)\s*\d+/i) || part.match(/^(ص|صـ|صفحة)\s*\d+/i) || part.match(/ص\s*-\s*\d+/)) {
-          // Excluded per specification
-          return;
-        }
-
-        if (part.includes('دار') || part.includes('مكتبة') || part.includes('مؤسسة') || part.includes('مطبعة') || part.includes('مركز')) {
-          publisher = part;
-        } else if (part.includes('طبعة') || part.includes('الطبعة') || part.match(/^ط\d+/)) {
-          edition = part;
-        } else if (part.match(/\d{4}\s*(هـ|م|ه|г)?/)) {
-          year = part;
-        } else if (part.includes('بيروت') || part.includes('الرياض') || part.includes('القاهرة') || part.includes('مكة') || part.includes('دمشق') || part.includes('عمان')) {
-          city = part;
-        }
-      });
-
-      // Remove any leftover (ج ... ص ...) from the book title itself
-      book = book.replace(/،?\s*(ج|جزء)\s*\d+.*$/i, '').replace(/،?\s*(ص|صـ|صفحة)\s*\d+.*$/i, '').trim();
+      // Project rule: Strip volume (ج / جزء / مجلد) and page (ص / صفحة / صـ) numbers
+      // Preserve user-written text verbatim including repeated words
+      const cleanText = stripVolumeAndPage(cleaned);
+      if (!cleanText) return;
 
       references.push({
         order: idx + 1,
-        book,
-        author,
-        publisher,
-        city,
-        edition,
-        year,
+        book: cleanText,
+        displayText: cleanText,
+        author: '',
+        publisher: '',
+        city: '',
+        edition: '',
+        year: '',
         rawFootnote: rawText
       });
     });

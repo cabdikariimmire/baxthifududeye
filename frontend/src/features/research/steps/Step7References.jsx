@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Plus, Trash2, ArrowLeft, ArrowRight, BookMarked, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Plus, Trash2, ArrowLeft, ArrowRight, BookMarked, RefreshCw, CheckCircle2, ArrowUpDown } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import { paginateReferencesContent } from '../../../utils/paginationHelper';
 import api from '../../../services/api';
 
@@ -59,20 +60,50 @@ const Step7References = ({ research, onSave, onNext, onPrev }) => {
     setReferences(updated);
   };
 
+  const sortArabicReferences = (items) => {
+    return [...items].sort((a, b) => {
+      const textA = (a.author?.trim() ? `${a.author.trim()} ${a.book || ''}` : (a.displayText || a.book || '')).trim();
+      const textB = (b.author?.trim() ? `${b.author.trim()} ${b.book || ''}` : (b.displayText || b.book || '')).trim();
+      const cleanKey = (str) => str
+        .replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED\u0640]/g, '')
+        .replace(/^["'«»()[\]{}.,،:;؛\s]+/, '')
+        .replace(/^(?:ال|وال|فال|بال|كال|لل)/, '')
+        .replace(/[أإآٱء]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .trim();
+      const keyA = cleanKey(textA);
+      const keyB = cleanKey(textB);
+      const cmp = keyA.localeCompare(keyB, 'ar', { sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+      return textA.localeCompare(textB, 'ar');
+    });
+  };
+
+  const handleSortReferences = () => {
+    const sorted = sortArabicReferences(references).map((r, i) => ({
+      ...r,
+      order: i + 1
+    }));
+    setReferences(sorted);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
       const validRefs = references
-        .filter((r) => (r.book && r.book.trim() !== '') || (r.displayText && r.displayText.trim() !== ''))
-        .map((r, idx) => ({
-          order: idx + 1,
-          book: r.book || r.displayText,
-          displayText: r.displayText || r.book
-        }));
+        .filter((r) => (r.book && r.book.trim() !== '') || (r.displayText && r.displayText.trim() !== ''));
+
+      const sortedRefs = sortArabicReferences(validRefs).map((r, idx) => ({
+        ...r,
+        order: idx + 1,
+        book: r.book || r.displayText,
+        displayText: r.displayText || r.book
+      }));
 
       await onSave({
-        references: validRefs,
+        references: sortedRefs,
         currentStep: 7
       });
       if (onNext) onNext();
@@ -92,9 +123,9 @@ const Step7References = ({ research, onSave, onNext, onPrev }) => {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Left Column: References Manager (lg: 7 cols) */}
-      <div className="lg:col-span-7 space-y-6">
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -113,6 +144,17 @@ const Step7References = ({ research, onSave, onNext, onPrev }) => {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSortReferences}
+                disabled={references.length <= 1}
+                className="btn btn-secondary text-xs"
+                title="إعادة الترتيب أبجدياً"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-teal-700" />
+                <span>ترتيب أبجدي</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleAddReference}
@@ -214,9 +256,9 @@ const Step7References = ({ research, onSave, onNext, onPrev }) => {
         </form>
       </div>
 
-      {/* Right Column: Live A4 References Preview (lg: 5 cols) */}
-      <div className="lg:col-span-5 flex flex-col items-center space-y-6">
-        <div className="w-full flex items-center justify-between px-2">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <span className="font-bold text-sm text-slate-700 font-cairo">
             معاينة صفحة المصادر والمراجع (A4)
           </span>
@@ -225,21 +267,22 @@ const Step7References = ({ research, onSave, onNext, onPrev }) => {
           </span>
         </div>
 
-        {paginatedReferencePages.map((pageItem, pIdx) => (
-          <div key={pIdx} className="w-full flex flex-col items-center">
-            {paginatedReferencePages.length > 1 && (
-              <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
-                صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
-              </div>
-            )}
-            <div className="bg-slate-200/80 p-4 rounded-xl shadow-inner w-full flex justify-center overflow-x-auto">
+        <A4ScaleWrapper pageCount={paginatedReferencePages.length}>
+          {paginatedReferencePages.map((pageItem, pIdx) => (
+            <div key={pIdx} className="w-full flex flex-col items-center">
+              {paginatedReferencePages.length > 1 && (
+                <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
+                  صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
+                </div>
+              )}
               <A4Page
                 page={pageItem}
                 borderId={research?.borderId}
+                fontFamily={research?.fontFamily}
               />
             </div>
-          </div>
-        ))}
+          ))}
+        </A4ScaleWrapper>
       </div>
     </div>
   );

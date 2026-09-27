@@ -24,32 +24,6 @@ function createDocxTOC(tocEntries = []) {
       tableHeader: true,
       children: [
         new TableCell({
-          width: { size: 15, type: WidthType.PERCENTAGE },
-          shading: { fill: 'F8FAFC' },
-          borders: {
-            top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
-            bottom: { style: BorderStyle.SINGLE, size: 12, color: '000000' },
-            left: { style: BorderStyle.NONE },
-            right: { style: BorderStyle.NONE }
-          },
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              bidirectional: true,
-              children: [
-                new TextRun({
-                  text: 'الصفحة',
-                  bold: true,
-                  font: docxStyles.fonts.headings,
-                  size: 24, // 12pt
-                  color: '000000',
-                  rightToLeft: true
-                })
-              ]
-            })
-          ]
-        }),
-        new TableCell({
           width: { size: 85, type: WidthType.PERCENTAGE },
           shading: { fill: 'F8FAFC' },
           borders: {
@@ -74,6 +48,32 @@ function createDocxTOC(tocEntries = []) {
               ]
             })
           ]
+        }),
+        new TableCell({
+          width: { size: 15, type: WidthType.PERCENTAGE },
+          shading: { fill: 'F8FAFC' },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+            bottom: { style: BorderStyle.SINGLE, size: 12, color: '000000' },
+            left: { style: BorderStyle.NONE },
+            right: { style: BorderStyle.NONE }
+          },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              bidirectional: true,
+              children: [
+                new TextRun({
+                  text: 'الصفحة',
+                  bold: true,
+                  font: docxStyles.fonts.headings,
+                  size: 24, // 12pt
+                  color: '000000',
+                  rightToLeft: true
+                })
+              ]
+            })
+          ]
         })
       ]
     })
@@ -88,32 +88,6 @@ function createDocxTOC(tocEntries = []) {
     rows.push(
       new TableRow({
         children: [
-          new TableCell({
-            width: { size: 15, type: WidthType.PERCENTAGE },
-            borders: {
-              top: { style: BorderStyle.DOTTED, size: 4, color: 'CBD5E1' },
-              bottom: { style: BorderStyle.DOTTED, size: 4, color: 'CBD5E1' },
-              left: { style: BorderStyle.NONE },
-              right: { style: BorderStyle.NONE }
-            },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                bidirectional: true,
-                spacing: { before: 80, after: 80 },
-                children: [
-                  new TextRun({
-                    text: pageAr,
-                    bold: isMajor,
-                    font: docxStyles.fonts.primary,
-                    size: 24,
-                    color: '000000',
-                    rightToLeft: true
-                  })
-                ]
-              })
-            ]
-          }),
           new TableCell({
             width: { size: 85, type: WidthType.PERCENTAGE },
             borders: {
@@ -139,6 +113,32 @@ function createDocxTOC(tocEntries = []) {
                 ]
               })
             ]
+          }),
+          new TableCell({
+            width: { size: 15, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.DOTTED, size: 4, color: 'CBD5E1' },
+              bottom: { style: BorderStyle.DOTTED, size: 4, color: 'CBD5E1' },
+              left: { style: BorderStyle.NONE },
+              right: { style: BorderStyle.NONE }
+            },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.LEFT,
+                bidirectional: true,
+                spacing: { before: 80, after: 80 },
+                children: [
+                  new TextRun({
+                    text: pageAr,
+                    bold: isMajor,
+                    font: docxStyles.fonts.primary,
+                    size: 24,
+                    color: '000000',
+                    rightToLeft: true
+                  })
+                ]
+              })
+            ]
           })
         ]
       })
@@ -149,6 +149,7 @@ function createDocxTOC(tocEntries = []) {
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       alignment: AlignmentType.CENTER,
+      visuallyRightToLeft: true, // <w:bidiVisual/> — RTL column ordering
       rows
     })
   ];

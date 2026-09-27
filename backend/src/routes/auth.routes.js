@@ -71,4 +71,7 @@ router.post(
   authController.resetPassword
 );
 
+// 9. Change Password (Authenticated)
+router.post('/change-password', authenticate, authController.changePassword);
+
 module.exports = router;

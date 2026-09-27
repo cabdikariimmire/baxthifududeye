@@ -113,6 +113,7 @@ const referenceSchema = new mongoose.Schema(
     sortKey: { type: String, default: '' },
     normalizedKey: { type: String, default: '' },
     book: { type: String, required: true },
+    displayText: { type: String, default: '' },
     author: { type: String, default: '' },
     publisher: { type: String, default: '' },
     city: { type: String, default: '' },
@@ -149,7 +150,7 @@ const researchSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['draft', 'structure_review', 'in_progress', 'ready', 'exported'],
+      enum: ['draft', 'structure_review', 'in_progress', 'ready', 'exported', 'archived'],
       default: 'draft',
       index: true
     },
@@ -166,6 +167,11 @@ const researchSchema = new mongoose.Schema(
     borderId: {
       type: String,
       default: 'none'
+    },
+    fontFamily: {
+      type: String,
+      default: 'default',
+      trim: true
     },
     cover: {
       country: { type: String, default: '' },

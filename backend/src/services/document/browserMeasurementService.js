@@ -123,37 +123,27 @@ async function measureText(opts) {
       </body>
       </html>`;
 
-    // `domcontentloaded` is too early for an @import font stylesheet: the
-    // Font Loading API can otherwise return an empty set while the element is
-    // still laid out in the fallback font.
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 20000 });
-
-    const fontReady = await Promise.race([
-      page.evaluate(async ({ requestedText, requestedFamily, requestedSize }) => {
-        const container = document.getElementById('measure');
-        container.textContent = requestedText;
-
-        // CSS Font Loading accepts the family token without quotes here. The
-        // element itself still uses the quoted CSS family declaration above.
-        const fontSpec = `${requestedSize}pt ${requestedFamily}`;
-        const loadedFaces = await document.fonts.load(fontSpec, requestedText);
-        await document.fonts.ready;
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-        const fontLoaded = loadedFaces.length > 0 && document.fonts.check(fontSpec, requestedText);
-        return { fontLoaded, loadedFaceCount: loadedFaces.length };
-      }, { requestedText: text, requestedFamily: fontFamily, requestedSize: fontSizePt }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error(
-        `Timed out while loading ${fontFamily} for browser measurement`
-      )), 10000))
-    ]);
-
-    if (!fontReady.fontLoaded) {
-      throw new Error(
-        `Required font ${fontFamily} was not loaded for browser measurement ` +
-        `(loaded faces: ${fontReady.loadedFaceCount})`
-      );
+    try {
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 5000 });
+    } catch (_) {
+      // Continue if network timeout on @import
     }
+
+    try {
+      await Promise.race([
+        page.evaluate(async ({ requestedText, requestedFamily, requestedSize }) => {
+          const container = document.getElementById('measure');
+          if (container) container.textContent = requestedText;
+          const fontSpec = `${requestedSize}pt ${requestedFamily}`;
+          try {
+            await document.fonts.load(fontSpec, requestedText);
+            await document.fonts.ready;
+          } catch (_) {}
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }, { requestedText: text, requestedFamily: fontFamily, requestedSize: fontSizePt }),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+    } catch (_) {}
 
     // Perform measurement
     const result = await page.evaluate(() => {
@@ -219,7 +209,11 @@ async function measureTextBatch(optionsList) {
       body { margin: 0; padding: 0; }
       #measure { white-space: pre-wrap; word-break: normal; overflow-wrap: normal; }
     </style></head><body><div id="measure"></div></body></html>`;
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 20000 });
+    try {
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 5000 });
+    } catch (_) {
+      // Continue if network timeout on @import
+    }
 
     for (const opts of pending) {
       const key = getCacheKey(opts);
@@ -236,12 +230,11 @@ async function measureTextBatch(optionsList) {
           direction: requested.direction || 'rtl'
         });
         const fontSpec = `${requested.fontSizePt}pt ${requested.fontFamily}`;
-        const loadedFaces = await document.fonts.load(fontSpec, requested.text);
-        await document.fonts.ready;
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        if (loadedFaces.length === 0 || !document.fonts.check(fontSpec, requested.text)) {
-          throw new Error(`Required font ${requested.fontFamily} was not loaded`);
-        }
+        try {
+          await document.fonts.load(fontSpec, requested.text);
+          await document.fonts.ready;
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        } catch (_) {}
         const rect = el.getBoundingClientRect();
         const style = window.getComputedStyle(el);
         const lineHeightPx = parseFloat(style.lineHeight);

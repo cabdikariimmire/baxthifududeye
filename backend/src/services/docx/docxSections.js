@@ -47,38 +47,47 @@ function createSafeLogoImage(logoUrl, customDims = null) {
 
       let imgWidth = targetWidth;
       let imgHeight = targetWidth;
+      const hasCustomHeight = Boolean(customDims?.heightMm || customDims?.heightPx);
 
-      // Detect natural image aspect ratio to prevent distortion
-      try {
-        if (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50) {
-          // PNG
-          const w = imageBuffer.readUInt32BE(16);
-          const h = imageBuffer.readUInt32BE(20);
-          if (w > 0 && h > 0) {
-            const ratio = h / w;
-            imgHeight = Math.round(targetWidth * ratio);
-          }
-        } else if (imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8) {
-          // JPEG / JPG
-          let offset = 2;
-          while (offset < imageBuffer.length) {
-            if (imageBuffer[offset] !== 0xFF) break;
-            const marker = imageBuffer[offset + 1];
-            if (marker === 0xC0 || marker === 0xC2) {
-              const h = imageBuffer.readUInt16BE(offset + 5);
-              const w = imageBuffer.readUInt16BE(offset + 7);
-              if (w > 0 && h > 0) {
-                const ratio = h / w;
-                imgHeight = Math.round(targetWidth * ratio);
+      if (customDims?.heightMm) {
+        imgHeight = Math.round(customDims.heightMm * 3.78);
+      } else if (customDims?.heightPx) {
+        imgHeight = Math.round(customDims.heightPx);
+      }
+
+      // If custom height was NOT explicitly provided, detect natural image aspect ratio to prevent distortion
+      if (!hasCustomHeight) {
+        try {
+          if (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50) {
+            // PNG
+            const w = imageBuffer.readUInt32BE(16);
+            const h = imageBuffer.readUInt32BE(20);
+            if (w > 0 && h > 0) {
+              const ratio = h / w;
+              imgHeight = Math.round(targetWidth * ratio);
+            }
+          } else if (imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8) {
+            // JPEG / JPG
+            let offset = 2;
+            while (offset < imageBuffer.length) {
+              if (imageBuffer[offset] !== 0xFF) break;
+              const marker = imageBuffer[offset + 1];
+              if (marker === 0xC0 || marker === 0xC2) {
+                const h = imageBuffer.readUInt16BE(offset + 5);
+                const w = imageBuffer.readUInt16BE(offset + 7);
+                if (w > 0 && h > 0) {
+                  const ratio = h / w;
+                  imgHeight = Math.round(targetWidth * ratio);
+                }
+                break;
+              } else {
+                const len = imageBuffer.readUInt16BE(offset + 2);
+                offset += 2 + len;
               }
-              break;
-            } else {
-              const len = imageBuffer.readUInt16BE(offset + 2);
-              offset += 2 + len;
             }
           }
-        }
-      } catch (_) { /* use defaults */ }
+        } catch (_) { /* use defaults */ }
+      }
 
       return new ImageRun({
         data: imageBuffer,
@@ -1093,7 +1102,7 @@ function buildConclusionChildren(conclusionData = {}, options = {}) {
 /**
  * Builds References Section Children
  */
-function buildReferencesChildren(refData = {}) {
+function buildReferencesChildren(refData = {}, { pageBreakBefore = false } = {}) {
   const children = [];
 
   // Main Heading: 18pt (Amiri) Centered
@@ -1103,7 +1112,7 @@ function buildReferencesChildren(refData = {}) {
       alignment: AlignmentType.CENTER,
       bidirectional: true,
       keepWithNext: true,
-      pageBreakBefore: true,
+      pageBreakBefore: pageBreakBefore,
       spacing: { before: 200, after: 180 },
       children: [
         new TextRun({
@@ -1125,6 +1134,10 @@ function buildReferencesChildren(refData = {}) {
         alignment: AlignmentType.RIGHT,
         bidirectional: true,
         spacing: { before: 60, after: 80, line: 360 },
+        indent: {
+          right: 0,
+          hanging: 360 // ~6.35mm hanging indent for the marker number
+        },
         children: [
           new TextRun({
             text: `${toArabicIndicDigits(ref.order)}. `,
@@ -1152,7 +1165,7 @@ function buildReferencesChildren(refData = {}) {
 /**
  * Builds Table of Contents Section Children
  */
-function buildTocChildren(tocEntries = []) {
+function buildTocChildren(tocEntries = [], { pageBreakBefore = false } = {}) {
   const children = [];
 
   // Main Heading: 18pt (Amiri) Centered
@@ -1162,7 +1175,7 @@ function buildTocChildren(tocEntries = []) {
       alignment: AlignmentType.CENTER,
       bidirectional: true,
       keepWithNext: true,
-      pageBreakBefore: true,
+      pageBreakBefore: pageBreakBefore,
       spacing: { before: 200, after: 180 },
       children: [
         new TextRun({
@@ -1191,5 +1204,6 @@ module.exports = {
   buildConclusionChildren,
   buildReferencesChildren,
   buildTocChildren,
-  parseParagraphIntoRuns
+  parseParagraphIntoRuns,
+  createSafeLogoImage
 };

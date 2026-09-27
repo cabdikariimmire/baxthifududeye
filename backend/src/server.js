@@ -2,11 +2,13 @@ const app = require('./app');
 const config = require('./config/env');
 const { connectDB } = require('./config/db');
 const { seedDefaultsIfEmpty } = require('./controllers/adminController');
+const { seedDefaultCMSIfEmpty } = require('./controllers/cmsController');
 
 const startServer = async () => {
   try {
     await connectDB();
     await seedDefaultsIfEmpty();
+    await seedDefaultCMSIfEmpty();
 
     const host = config.host || '0.0.0.0';
     const server = app.listen(config.port, host, () => {

@@ -5,21 +5,29 @@ const DocumentBuilder = require('../services/document/documentBuilder');
 const { extractReferencesFromResearch } = require('../services/references/extractor');
 const TOCBuilder = require('../services/toc/tocBuilder');
 const PDFGenerator = require('../services/pdf/pdfGenerator');
+const config = require('../config/env');
 const {
   normalizeToSemanticTree,
   flattenSemanticTreeToTopics
 } = require('../services/document/academicHierarchy');
+const {
+  RESEARCH_FONTS,
+  DEFAULT_FONT_ID,
+  isValidFontId,
+  normalizeFontId
+} = require('../config/researchFonts');
 
 // 1. Create Research Project
 const createResearch = async (req, res, next) => {
   try {
-    const { title, borderId, templateId, cover } = req.body;
+    const { title, borderId, templateId, fontFamily, cover } = req.body;
 
     const research = await Research.create({
       userId: req.user._id,
       title: title || cover?.title || '',
       borderId: borderId || 'none',
       templateId: templateId || 'template-default-a4',
+      fontFamily: fontFamily ? normalizeFontId(fontFamily) : DEFAULT_FONT_ID,
       currentStep: 1,
       status: 'draft',
       cover: cover || {}
@@ -49,7 +57,7 @@ const listResearches = async (req, res, next) => {
   try {
     const researches = await Research.find({ userId: req.user._id })
       .sort({ updatedAt: -1 })
-      .select('title status currentStep borderId cover updatedAt createdAt');
+      .select('title status currentStep borderId fontFamily cover updatedAt createdAt');
 
     return res.json({
       success: true,
@@ -94,6 +102,7 @@ const updateResearch = async (req, res, next) => {
       'status',
       'borderId',
       'templateId',
+      'fontFamily',
       'cover',
       'introduction',
       'structure',
@@ -109,6 +118,17 @@ const updateResearch = async (req, res, next) => {
         updates[key] = req.body[key];
       }
     });
+
+    if (updates.fontFamily !== undefined) {
+      if (!isValidFontId(updates.fontFamily)) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_FONT',
+          message: 'نوع الخط المحدد غير معتمد'
+        });
+      }
+      updates.fontFamily = normalizeFontId(updates.fontFamily);
+    }
 
     const research = await Research.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
@@ -623,15 +643,19 @@ const applyFullDocument = async (req, res, next) => {
   }
 };
 
-// 16. Export PDF
+// 16. Export PDF (Strictly PDF-Only)
 const exportPDF = async (req, res, next) => {
   try {
     const research = await Research.findOne({ _id: req.params.id, userId: req.user._id });
     if (!research) {
-      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'البحث غير موجود' });
+      return res.status(404).json({
+        success: false,
+        code: 'NOT_FOUND',
+        message: 'مشروع البحث غير موجود أو لا تملك صلاحية الوصول إليه'
+      });
     }
 
-    if (!research.title && !research.cover?.title) {
+    if (!research.title && !research.cover?.title && !research.topic?.title) {
       return res.status(400).json({
         success: false,
         code: 'VALIDATION_FAILED',
@@ -651,11 +675,12 @@ const exportPDF = async (req, res, next) => {
       userEmail: req.user.email,
       action: 'pdf_exported',
       targetId: String(research._id),
-      details: `تصدير ملف PDF لبحث: "${research.title || ''}"`
+      details: `تصدير ملف PDF للبحث: "${research.title || research.cover?.title || 'بحث أكاديمي'}"`
     });
 
+    const safeTitle = encodeURIComponent((research.title || research.cover?.title || 'research').replace(/\s+/g, '_'));
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="research_${research._id}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="research_${research._id}.pdf"; filename*=UTF-8''${safeTitle}.pdf`);
     return res.send(pdfBuffer);
   } catch (err) {
     console.error('[PDF Export Error]:', err);
@@ -684,53 +709,20 @@ const getPrintableHTML = async (req, res, next) => {
   }
 };
 
-// 18. Export Word DOCX
-const DocxGenerator = require('../services/docx/docxGenerator');
-
-const exportDOCX = async (req, res, next) => {
+// 18. Get Available Research Fonts
+const getResearchFonts = async (req, res, next) => {
   try {
-    const research = await Research.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!research) {
-      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'البحث غير موجود' });
-    }
-
-    if (!research.title && !research.cover?.title) {
-      return res.status(400).json({
-        success: false,
-        code: 'VALIDATION_FAILED',
-        message: 'عنوان البحث غير محدد. يرجى إدخال عنوان البحث في صفحة الغلاف.'
-      });
-    }
-
-    const docxBuffer = await DocxGenerator.generateDocx(research);
-
-    research.status = 'exported';
-    research.documentMetadata.lastExportedAt = new Date();
-    await research.save();
-
-    ActivityLog.record({
-      userId: req.user._id,
-      userName: req.user.name,
-      userEmail: req.user.email,
-      action: 'docx_exported',
-      targetId: String(research._id),
-      details: `تصدير ملف Word DOCX لبحث: "${research.title || ''}"`
+    return res.json({
+      success: true,
+      data: {
+        fonts: RESEARCH_FONTS,
+        defaultFontId: DEFAULT_FONT_ID
+      }
     });
-
-    const filename = encodeURIComponent(research.title || 'research');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="research_${research._id}.docx"; filename*=UTF-8''${filename}.docx`);
-    return res.send(docxBuffer);
   } catch (err) {
-    console.error('[DOCX Export Error]:', err);
-    return res.status(500).json({
-      success: false,
-      code: 'DOCX_EXPORT_FAILED',
-      message: 'تعذر إنشاء ملف Word. حاول مرة أخرى.'
-    });
+    next(err);
   }
 };
-
 
 module.exports = {
   createResearch,
@@ -749,6 +741,7 @@ module.exports = {
   analyzeFullDocument,
   applyFullDocument,
   exportPDF,
-  exportDOCX,
-  getPrintableHTML
+  getPrintableHTML,
+  getResearchFonts
 };
+

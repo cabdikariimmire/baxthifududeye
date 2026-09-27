@@ -19,22 +19,7 @@ const activityLogSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
-      index: true,
-      enum: [
-        'user_login',
-        'user_register',
-        'email_verified',
-        'password_reset_requested',
-        'password_reset_completed',
-        'research_created',
-        'research_updated',
-        'pdf_exported',
-        'docx_exported',
-        'role_changed',
-        'user_status_changed',
-        'ai_action',
-        'settings_updated'
-      ]
+      index: true
     },
     targetId: {
       type: String,

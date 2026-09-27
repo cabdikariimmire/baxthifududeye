@@ -4,6 +4,12 @@ const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema(
   {
+    clerkId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true
+    },
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -25,8 +31,9 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'admin'],
-      default: 'user'
+      enum: ['user', 'admin', 'super_admin', 'editor'],
+      default: 'user',
+      index: true
     },
     status: {
       type: String,

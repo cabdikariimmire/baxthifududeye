@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, ArrowLeft, ArrowRight, BookOpen, RefreshCw, Wand2 } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import { paginateIntroductionContent } from '../../../utils/paginationHelper';
 import api from '../../../services/api';
 
@@ -108,9 +109,9 @@ const Step2Introduction = ({ research, onSave, onNext, onPrev }) => {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
-      {/* Left Column: Single Unified Document Editor (lg: 7 cols) */}
-      <div className="lg:col-span-7 space-y-6">
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
@@ -209,9 +210,9 @@ const Step2Introduction = ({ research, onSave, onNext, onPrev }) => {
         </div>
       </div>
 
-      {/* Right Column: Live A4 Introduction Preview (lg: 5 cols) */}
-      <div className="lg:col-span-5 flex flex-col items-center space-y-6">
-        <div className="w-full flex items-center justify-between px-2">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <span className="font-bold text-sm text-slate-700 font-cairo">
             المعاينة الحية للمقدمة (A4 - 16pt Amiri)
           </span>
@@ -220,21 +221,22 @@ const Step2Introduction = ({ research, onSave, onNext, onPrev }) => {
           </span>
         </div>
 
-        {paginatedIntroPages.map((pageItem, pIdx) => (
-          <div key={pIdx} className="w-full flex flex-col items-center">
-            {paginatedIntroPages.length > 1 && (
-              <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
-                صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
-              </div>
-            )}
-            <div className="bg-slate-200/90 p-4 rounded-2xl shadow-inner w-full flex justify-center overflow-x-auto">
+        <A4ScaleWrapper pageCount={paginatedIntroPages.length}>
+          {paginatedIntroPages.map((pageItem, pIdx) => (
+            <div key={pIdx} className="w-full flex flex-col items-center">
+              {paginatedIntroPages.length > 1 && (
+                <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
+                  صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
+                </div>
+              )}
               <A4Page
                 page={pageItem}
                 borderId={research?.borderId}
+                fontFamily={research?.fontFamily}
               />
             </div>
-          </div>
-        ))}
+          ))}
+        </A4ScaleWrapper>
       </div>
     </div>
   );

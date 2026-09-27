@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Hash } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import { paginateTopicContent } from '../../../utils/paginationHelper';
 import api from '../../../services/api';
 
@@ -75,8 +76,18 @@ const Step5Footnotes = ({ research, onSave, onNext, onPrev }) => {
   };
 
   // Requirement 2: Deleting footnote automatically renumbers all subsequent markers
-  const handleDeleteFootnote = (index) => {
-    const remaining = footnotes.filter((_, i) => i !== index);
+  const handleDeleteFootnote = (targetIdOrIndex) => {
+    let targetIndex = -1;
+    if (typeof targetIdOrIndex === 'number') {
+      targetIndex = targetIdOrIndex;
+    } else if (typeof targetIdOrIndex === 'string') {
+      targetIndex = footnotes.findIndex(
+        (f) => f.footnoteId === targetIdOrIndex || f.id === targetIdOrIndex
+      );
+    }
+    if (targetIndex === -1) return;
+
+    const remaining = footnotes.filter((_, i) => i !== targetIndex);
     const renumbered = remaining.map((fn, idx) => ({
       ...fn,
       number: idx + 1,
@@ -134,9 +145,9 @@ const Step5Footnotes = ({ research, onSave, onNext, onPrev }) => {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Left Column: Footnotes Manager (lg: 7 cols) */}
-      <div className="lg:col-span-7 space-y-6">
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         {topics.length > 1 && (
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
             {topics.map((t, idx) => (
@@ -229,7 +240,7 @@ const Step5Footnotes = ({ research, onSave, onNext, onPrev }) => {
 
                   <button
                     type="button"
-                    onClick={() => handleDeleteFootnote(idx)}
+                    onClick={() => handleDeleteFootnote(fn.footnoteId || idx)}
                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-60 group-hover:opacity-100 mt-1"
                     title="حذف الهامش"
                   >
@@ -279,9 +290,9 @@ const Step5Footnotes = ({ research, onSave, onNext, onPrev }) => {
         </div>
       </div>
 
-      {/* Right Column: Live A4 Topic Pages with Footnotes (lg: 5 cols) */}
-      <div className="lg:col-span-5 flex flex-col items-center space-y-6">
-        <div className="w-full flex items-center justify-between px-2">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <span className="font-bold text-sm text-slate-700 font-cairo">
             معاينة الهوامش أسفل الصفحة (A4)
           </span>
@@ -290,18 +301,18 @@ const Step5Footnotes = ({ research, onSave, onNext, onPrev }) => {
           </span>
         </div>
 
-        {paginatedTopicPages.map((pageItem, pIdx) => (
-          <div key={pIdx} className="w-full flex flex-col items-center">
-            {paginatedTopicPages.length > 1 && (
-              <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
-                صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
-              </div>
-            )}
-            <div className="bg-slate-200/80 p-4 rounded-xl shadow-inner w-full flex justify-center overflow-x-auto">
-              <A4Page page={pageItem} borderId={research?.borderId} />
+        <A4ScaleWrapper pageCount={paginatedTopicPages.length}>
+          {paginatedTopicPages.map((pageItem, pIdx) => (
+            <div key={pIdx} className="w-full flex flex-col items-center">
+              {paginatedTopicPages.length > 1 && (
+                <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
+                  صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
+                </div>
+              )}
+              <A4Page page={pageItem} borderId={research?.borderId} fontFamily={research?.fontFamily} />
             </div>
-          </div>
-        ))}
+          ))}
+        </A4ScaleWrapper>
       </div>
     </div>
   );

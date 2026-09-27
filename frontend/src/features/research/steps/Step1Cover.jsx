@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import { Palette, CheckCircle2, ArrowLeft, Upload, Trash2, Image, RotateCcw, Sparkles, Move } from 'lucide-react';
 import api from '../../../services/api';
 import { BORDERS_LIST, getBorderById } from '../../../utils/borders';
+import FontSelector from '../../../components/common/FontSelector';
 import { buildDefaultCoverLayout, mergeCoverDataWithLayout } from '../../../utils/coverLayout';
 import { resolveLogoUrl, isCustomLogo, DEFAULT_LOGO_URL } from '../../../utils/logoResolver';
 
@@ -21,6 +23,7 @@ const Step1Cover = ({ research, onSave, onNext }) => {
     gregorianYear: research?.cover?.gregorianYear || '',
     badgeColor: research?.cover?.badgeColor || '#38761d',
     borderId: research?.borderId || 'none',
+    fontFamily: research?.fontFamily || 'default',
     logoUrl: resolveLogoUrl(research?.cover?.logoUrl)
   });
 
@@ -43,6 +46,11 @@ const Step1Cover = ({ research, onSave, onNext }) => {
 
   const handleBorderSelect = (borderId) => {
     setFormData((prev) => ({ ...prev, borderId }));
+  };
+
+  const handleFontSelect = (fontFamily) => {
+    setFormData((prev) => ({ ...prev, fontFamily }));
+    onSave && onSave({ fontFamily });
   };
 
   const handleLogoFileChange = async (e) => {
@@ -102,6 +110,7 @@ const Step1Cover = ({ research, onSave, onNext }) => {
       const payload = {
         title: formData.title,
         borderId: formData.borderId,
+        fontFamily: formData.fontFamily || 'default',
         cover: {
           country: formData.country,
           university: formData.university,
@@ -147,33 +156,44 @@ const Step1Cover = ({ research, onSave, onNext }) => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
-      {/* Left Form Controls (lg: 7 cols in RTL) */}
-      <div className="lg:col-span-7 space-y-6">
-        {/* Academic Page Border Art Single Select Control */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm space-y-3">
-          <label htmlFor="borderId-select" className="form-label font-bold text-slate-800 flex items-center gap-2 text-base">
-            <Palette className="w-5 h-5 text-teal-700" />
-            <span>اختيار إطار الصفحة الأكاديمي</span>
-          </label>
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="space-y-6 max-w-4xl mx-auto w-full">
+        {/* Academic Document Formatting & Settings (Border Art & Font Selection) */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <label htmlFor="borderId-select" className="form-label font-bold text-slate-800 flex items-center gap-2 text-base">
+                <Palette className="w-5 h-5 text-teal-700" />
+                <span>اختيار إطار الصفحة الأكاديمي</span>
+              </label>
 
-          <select
-            id="borderId-select"
-            name="borderId"
-            value={formData.borderId || 'none'}
-            onChange={(e) => handleBorderSelect(e.target.value)}
-            className="input-field font-amiri font-bold text-base text-slate-900 bg-slate-50 border-slate-300 focus:bg-white cursor-pointer py-2.5 px-3 w-full"
-          >
-            {BORDERS_LIST.map((b) => (
-              <option key={b.borderId} value={b.borderId}>
-                {b.nameAr}
-              </option>
-            ))}
-          </select>
+              <select
+                id="borderId-select"
+                name="borderId"
+                value={formData.borderId || 'none'}
+                onChange={(e) => handleBorderSelect(e.target.value)}
+                className="input-field font-amiri font-bold text-base text-slate-900 bg-slate-50 border-slate-300 focus:bg-white cursor-pointer py-2.5 px-3 w-full"
+              >
+                {BORDERS_LIST.map((b) => (
+                  <option key={b.borderId} value={b.borderId}>
+                    {b.nameAr}
+                  </option>
+                ))}
+              </select>
 
-          <p className="text-xs text-slate-500 font-amiri">
-            * الإطار المحدد يُطبق فوراً على المعاينة الحية لصفحات البحث ومخرجات الطباعة.
-          </p>
+              <p className="text-xs text-slate-500 font-amiri">
+                * الإطار المحدد يُطبق فوراً على المعاينة الحية لصفحات البحث ومخرجات الطباعة.
+              </p>
+            </div>
+
+            <div>
+              <FontSelector
+                value={formData.fontFamily || 'default'}
+                onChange={handleFontSelect}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Cover Data Form */}
@@ -422,9 +442,9 @@ const Step1Cover = ({ research, onSave, onNext }) => {
         </form>
       </div>
 
-      {/* Right Live A4 Preview & Interactive Canvas (lg: 5 cols in RTL) */}
-      <div className="lg:col-span-5 flex flex-col items-center sticky top-24">
-        <div className="w-full flex items-center justify-between mb-2 px-1">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm text-slate-800 font-cairo flex items-center gap-1.5">
               <Move className="w-4 h-4 text-teal-700" />
@@ -443,18 +463,19 @@ const Step1Cover = ({ research, onSave, onNext }) => {
           </button>
         </div>
 
-        <div className="w-full mb-2.5 px-3 py-1.5 bg-teal-50/80 border border-teal-200/80 rounded-lg text-[11px] text-teal-900 font-amiri flex items-center justify-between">
+        <div className="max-w-4xl mx-auto mb-2.5 px-3 py-1.5 bg-teal-50/80 border border-teal-200/80 rounded-lg text-[11px] text-teal-900 font-amiri flex items-center justify-between">
           <span>💡 انقر على أي عنصر واسحبه بحرية لتغيير موضعه، أو اسحب زوايا الشعار لتكبيره.</span>
           <span className="badge badge-success text-[10px] font-bold py-0.5">تعديل مباشر</span>
         </div>
 
-        <div className="bg-slate-200/90 p-4 rounded-2xl shadow-inner w-full flex justify-center overflow-x-auto">
+        <A4ScaleWrapper>
           <A4Page
             page={liveCoverPage}
             borderSvg={activeBorderObj?.svgPattern}
             borderId={formData.borderId}
+            fontFamily={formData.fontFamily}
           />
-        </div>
+        </A4ScaleWrapper>
       </div>
     </div>
   );

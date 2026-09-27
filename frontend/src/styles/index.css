@@ -7,6 +7,7 @@
 
 :root {
   --font-amiri: 'Amiri', serif;
+  --research-font: var(--font-amiri);
   --font-cairo: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
   --font-scheherazade: 'Scheherazade New', serif;
   --font-tajawal: 'Tajawal', sans-serif;
@@ -22,13 +23,6 @@
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
-  --admin-sidebar-w: 0px;
-}
-
-@media (min-width: 1024px) {
-  :root {
-    --admin-sidebar-w: 16rem;
-  }
 }
 
 * {
@@ -39,8 +33,6 @@
 
 body {
   font-family: var(--font-cairo);
-  direction: rtl;
-  text-align: right;
   background-color: #f8fafc;
   color: var(--text-main);
   min-height: 100vh;
@@ -49,34 +41,11 @@ body {
   line-height: 1.6;
 }
 
-/* Core Layout Enforcements */
+/* Core Layout Utilities */
 .mx-auto {
-  margin-left: auto !important;
-  margin-right: auto !important;
+  margin-left: auto;
+  margin-right: auto;
 }
-
-.max-w-md { max-width: 28rem !important; }
-.max-w-lg { max-width: 32rem !important; }
-.max-w-xl { max-width: 36rem !important; }
-.max-w-2xl { max-width: 42rem !important; }
-.max-w-3xl { max-width: 48rem !important; }
-.max-w-4xl { max-width: 56rem !important; }
-.max-w-5xl { max-width: 64rem !important; }
-.max-w-6xl { max-width: 72rem !important; }
-.max-w-7xl { max-width: 80rem !important; }
-
-.w-full { width: 100% !important; }
-
-.flex { display: flex !important; }
-.inline-flex { display: inline-flex !important; }
-.grid { display: grid !important; }
-
-.items-center { align-items: center !important; }
-.items-start { align-items: flex-start !important; }
-.justify-center { justify-content: center !important; }
-.justify-between { justify-content: space-between !important; }
-.flex-col { flex-direction: column !important; }
-.flex-1 { flex: 1 1 0% !important; }
 
 /* Typography & Headings */
 h1, h2, h3, h4, h5, h6 {
@@ -113,77 +82,19 @@ a {
   width: 100%;
 }
 
-.admin-main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  width: 100%;
+/* Custom subtle scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-
-@media (min-width: 1024px) {
-  .admin-main-content {
-    margin-right: 16rem !important;
-    width: calc(100% - 16rem) !important;
-    max-width: calc(100% - 16rem) !important;
-  }
-}
-
-.admin-header {
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  padding: 0.875rem 1.75rem !important;
-  width: 100%;
-}
-
-.admin-page-container {
-  flex: 1;
-  padding: 1.75rem !important;
-  width: 100%;
-  max-width: 1400px;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  box-sizing: border-box;
-}
-
-@media (min-width: 1024px) {
-  .sidebar-mobile-close {
-    display: none !important;
-  }
-}
-
-/* Admin Sidebar Custom Scrollbar */
-.sidebar-nav::-webkit-scrollbar {
-  width: 3px;
-}
-.sidebar-nav::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
-.sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(20, 184, 166, 0.15);
-  border-radius: 999px;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(15, 143, 131, 0.2);
+  border-radius: 9999px;
 }
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background: rgba(20, 184, 166, 0.3);
-}
-
-/* Active nav item subtle glow */
-.sidebar-active-item {
-  box-shadow: 0 0 12px rgba(20, 184, 166, 0.08);
-}
-
-@media (max-width: 768px) {
-  .admin-header {
-    padding: 0.75rem 1rem !important;
-  }
-  .admin-page-container {
-    padding: 1rem !important;
-  }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 143, 131, 0.4);
 }
 
 .main-container {
@@ -431,7 +342,34 @@ a {
   color: #475569;
 }
 
-/* Precision A4 Document Sheet (210mm x 297mm natural physical size) */
+/* =========================================================
+   A4 Document System — Physical A4 (210mm × 297mm)
+   ========================================================= */
+
+/* Document workspace container — neutral background for the A4 "desk" */
+.a4-workspace {
+  background-color: #d1d5db;
+  padding: 2rem 1rem;
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Scaling container — JS sets transform: scale() on this */
+.a4-scale-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  transform-origin: top center;
+}
+
+/* Legacy viewport container (kept for backward compat) */
 .a4-viewport-container {
   display: flex;
   justify-content: center;
@@ -442,6 +380,7 @@ a {
   box-sizing: border-box;
 }
 
+/* A4 Page Sheet — exact physical dimensions */
 .a4-sheet {
   position: relative;
   width: 210mm;
@@ -449,13 +388,16 @@ a {
   max-height: 297mm;
   height: 297mm;
   background-color: #ffffff;
-  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
-  border-radius: 2px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.1),
+    0 16px 40px rgba(0, 0, 0, 0.04);
+  border: 1px solid #c9cdd2;
+  border-radius: 1px;
   overflow: hidden;
   box-sizing: border-box;
   flex-shrink: 0;
 }
-
 
 .a4-border-layer {
   position: absolute;
@@ -467,20 +409,24 @@ a {
   z-index: 1;
 }
 
+/* Content area — 25mm margins on all four sides */
 .a4-content-layer {
   position: absolute;
-  top: 24mm;
-  bottom: 24mm;
+  top: 25mm;
+  bottom: 25mm;
   right: 25mm;
   left: 25mm;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  font-family: var(--font-amiri);
+  font-family: var(--research-font, var(--font-amiri));
   color: #111827;
   overflow: hidden;
+  direction: rtl;
+  text-align: right;
 }
 
+/* Page number footer */
 .a4-footer-layer {
   position: absolute;
   bottom: 12mm;
@@ -488,18 +434,18 @@ a {
   right: 0;
   text-align: center;
   z-index: 2;
-  font-family: var(--font-amiri);
+  font-family: var(--research-font, var(--font-amiri));
   font-size: 14pt;
   color: #475569;
 }
 
 /* Cover Layout Styling (Strict Centering & Vertical Balance) */
-/* Academic Typography Hierarchy (Consistent Amiri) */
+/* Academic Typography Hierarchy (Consistent Amiri default or selected research font) */
 /* 1. المطلب: 18pt Bold Centered */
 .main-heading,
 .page-h1-heading,
 .topic-h1 {
-  font-family: var(--font-amiri), serif !important;
+  font-family: var(--research-font, var(--font-amiri)) !important;
   font-size: 18pt !important;
   font-weight: 700 !important;
   line-height: 1.35 !important;
@@ -520,7 +466,7 @@ a {
 .page-h2-subheading,
 .topic-h2,
 .topic-h3 {
-  font-family: var(--font-amiri), serif !important;
+  font-family: var(--research-font, var(--font-amiri)) !important;
   font-size: 17pt !important;
   font-weight: 700 !important;
   line-height: 1.35 !important;
@@ -537,7 +483,7 @@ a {
 .page-body-p,
 .research-body,
 .topic-p {
-  font-family: var(--font-amiri), serif !important;
+  font-family: var(--research-font, var(--font-amiri)) !important;
   font-size: 16pt !important;
   font-weight: 400 !important;
   line-height: 1.55 !important;
@@ -553,7 +499,7 @@ a {
 /* 4. Inline Footnote Marker (Clean separation, no overlapping or collisions, solid black) */
 .inline-footnote-marker {
   display: inline-block !important;
-  font-family: var(--font-amiri), serif !important;
+  font-family: var(--research-font, var(--font-amiri)) !important;
   font-size: 13pt !important;
   font-weight: 700 !important;
   color: #000000 !important;
@@ -563,19 +509,24 @@ a {
   vertical-align: baseline !important;
   user-select: none !important;
   direction: rtl !important;
+  unicode-bidi: isolate !important;
   white-space: nowrap !important;
 }
 
-.page-footnote-item {
-  font-family: var(--font-amiri), serif !important;
+.page-footnote-item,
+.footnote-item {
+  font-family: var(--research-font, var(--font-amiri)) !important;
   font-size: 12pt !important;
   line-height: 1.35 !important;
-  text-align: justify !important;
+  text-align: right !important;
+  direction: rtl !important;
   color: #1e293b;
 }
 
 .page-footnotes-container {
   width: 100%;
+  direction: rtl;
+  text-align: right;
 }
 
 .page-footnotes-separator {
@@ -584,8 +535,8 @@ a {
   height: 1.5px;
   background-color: #000000;
   margin: 8px 0 6px 0;
-  margin-right: 0;
-  margin-left: auto;
+  margin-right: 0 !important;
+  margin-left: auto !important;
 }
 
 /* Compact & Balanced Cover Layout Styling */
@@ -794,6 +745,7 @@ a {
 .toc-container-preview {
   width: 100%;
   margin-top: 8px;
+  direction: rtl;
 }
 
 .toc-row-preview {
@@ -804,6 +756,7 @@ a {
   padding: 4px 6px;
   border-radius: 6px;
   transition: background-color 0.15s ease;
+  direction: rtl;
 }
 
 .toc-row-preview:hover {
@@ -851,18 +804,242 @@ a {
   background: #94a3b8;
 }
 
-/* Print Rules */
+/* =========================================================
+   Print Rules — A4 Academic Document
+   ========================================================= */
+@page {
+  size: A4 portrait;
+  margin: 25mm;
+}
+
 @media print {
   body {
     background: transparent !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
-  .no-print {
+
+  /* Hide ALL non-document UI */
+  nav, header, footer,
+  .no-print, .stepper, .step-node,
+  .btn, form, .form-label, .input-field, .textarea-field,
+  .a4-workspace, .a4-scale-container,
+  [class*="bg-slate-200"],
+  [class*="bg-slate-300"] {
     display: none !important;
+  }
+
+  .a4-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    page-break-after: always !important;
+    transform: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+  }
+
+  .a4-scale-container {
+    transform: none !important;
+    width: 100% !important;
+  }
+
+  .a4-content-layer {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+  }
+}
+
+/* Modal Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* =========================================================
+   Clerk Authentication Styling (Google Only, RTL, Centered Card)
+   ========================================================= */
+
+/* Strictly hide non-Google social login buttons */
+.cl-socialButtonsBlockButton:not(.cl-socialButtonsBlockButton__google):not([data-provider="google"]),
+.cl-socialButtonsIconButton:not(.cl-socialButtonsIconButton__google):not([data-provider="google"]),
+.cl-socialButtonsBlockButton__facebook,
+.cl-socialButtonsIconButton__facebook,
+.cl-socialButtonsBlockButton__github,
+.cl-socialButtonsIconButton__github,
+.cl-socialButtonsBlockButton__apple,
+.cl-socialButtonsIconButton__apple,
+.cl-socialButtonsBlockButton__microsoft,
+.cl-socialButtonsIconButton__microsoft {
+  display: none !important;
+}
+
+/* Ensure Google Button Container is 100% full width */
+.cl-socialButtons,
+.cl-socialButtonsRoot,
+.cl-socialButtonsRow,
+.cl-socialButtonsContainer {
+  display: flex !important;
+  width: 100% !important;
+  justify-content: center !important;
+  align-items: stretch !important;
+}
+
+/* Make Google button full width, centered, prominent, and uncluttered */
+.cl-socialButtonsBlockButton__google,
+.cl-socialButtonsBlockButton[data-provider="google"],
+.cl-socialButtonsIconButton__google,
+.cl-socialButtonsIconButton[data-provider="google"] {
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 100% !important;
+  min-height: 46px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  flex-direction: row-reverse !important;
+  padding: 0.65rem 1.25rem !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid #E5E7EB !important;
+  background-color: #ffffff !important;
+  box-sizing: border-box !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+.cl-socialButtonsBlockButton__google:hover,
+.cl-socialButtonsBlockButton[data-provider="google"]:hover,
+.cl-socialButtonsIconButton__google:hover,
+.cl-socialButtonsIconButton[data-provider="google"]:hover {
+  background-color: #f0fdfa !important;
+  border-color: #0F8F83 !important;
+}
+
+/* Replace text to exactly 'المتابعة باستخدام Google' */
+.cl-socialButtonsBlockButtonText,
+.cl-socialButtonsIconButtonText {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  display: inline-flex !important;
+  overflow: visible !important;
+}
+
+.cl-socialButtonsBlockButtonText::after,
+.cl-socialButtonsIconButtonText::after {
+  content: "المتابعة باستخدام Google" !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-family: var(--font-cairo), sans-serif !important;
+  font-weight: 700 !important;
+  color: #0F2747 !important;
+  white-space: nowrap !important;
+}
+
+/* Centered Clerk Root Box */
+.cl-rootBox {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+/* Clerk Card styling */
+.cl-card {
+  width: 100% !important;
+  max-width: 450px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Clerk RTL input and label formatting */
+.cl-formFieldLabel {
+  text-align: right !important;
+  direction: rtl !important;
+}
+
+.cl-formFieldInput {
+  text-align: right !important;
+  direction: rtl !important;
+}
+
+
+/* ==========================================================================
+   Print Media Styles (Phase 4)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .a4-workspace, .a4-workspace * {
+    visibility: visible;
+  }
+  .a4-workspace {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .a4-sheet {
     box-shadow: none !important;
+    border: none !important;
     margin: 0 !important;
-    page-break-after: always !important;
+    page-break-after: always;
   }
+}
+
+/* ==========================================================================
+   Admin Dashboard Animations & Polish
+   ========================================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn {
+    animation: none !important;
+  }
+}
+
+.admin-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }

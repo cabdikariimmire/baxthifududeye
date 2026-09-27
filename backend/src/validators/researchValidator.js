@@ -1,10 +1,15 @@
 const { z } = require('zod');
+const { ALLOWED_FONT_IDS, normalizeFontId } = require('../config/researchFonts');
 
 const createResearchSchema = z.object({
   body: z.object({
     title: z.string().optional().default(''),
     borderId: z.string().optional(),
     templateId: z.string().optional(),
+    fontFamily: z.string().optional().refine(
+      (val) => !val || ALLOWED_FONT_IDS.includes(normalizeFontId(val)),
+      { message: 'نوع الخط المحدد غير معتمد' }
+    ),
     cover: z.object({
       country: z.string().optional(),
       university: z.string().optional(),

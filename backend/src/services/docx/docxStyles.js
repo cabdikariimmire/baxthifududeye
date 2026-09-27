@@ -18,8 +18,8 @@ const docxStyles = {
       height: convertMillimetersToTwip(documentSpec.dimensions.heightMm || 297) // 297mm
     },
     margin: {
-      top: convertMillimetersToTwip(documentSpec.margins.topMm || 25), // 25mm
-      bottom: convertMillimetersToTwip(documentSpec.margins.bottomMm || 25), // 25mm
+      top: convertMillimetersToTwip(documentSpec.margins.topMm || 24), // 24mm
+      bottom: convertMillimetersToTwip(documentSpec.margins.bottomMm || 24), // 24mm
       left: convertMillimetersToTwip(documentSpec.margins.leftMm || 25), // 25mm
       right: convertMillimetersToTwip(documentSpec.margins.rightMm || 25) // 25mm
     }

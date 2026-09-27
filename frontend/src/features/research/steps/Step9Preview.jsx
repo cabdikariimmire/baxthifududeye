@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, ChevronRight, ChevronLeft, Download, Printer, ArrowLeft, ArrowRight, Layers, ZoomIn, ZoomOut } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
+import FontSelector from '../../../components/common/FontSelector';
 import api from '../../../services/api';
 
-const Step9Preview = ({ research, onNext, onPrev, targetPageNumber }) => {
+const Step9Preview = ({ research, onSave, onNext, onPrev, targetPageNumber }) => {
   const [documentModel, setDocumentModel] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(targetPageNumber ? targetPageNumber - 1 : 0);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,18 @@ const Step9Preview = ({ research, onNext, onPrev, targetPageNumber }) => {
       setCurrentPageIndex(targetPageNumber - 1);
     }
   }, [targetPageNumber]);
+
+  const handleFontChange = async (newFont) => {
+    const researchId = research?._id;
+    if (!researchId) return;
+    try {
+      await api.patch(`/researches/${researchId}`, { fontFamily: newFont });
+      if (onSave) onSave({ fontFamily: newFont });
+      await fetchPreview();
+    } catch (err) {
+      console.error('Error changing font in preview:', err);
+    }
+  };
 
   if (loading) {
     return (
@@ -80,14 +94,21 @@ const Step9Preview = ({ research, onNext, onPrev, targetPageNumber }) => {
   const pages = documentModel.pages || [];
   const activePage = pages[currentPageIndex] || pages[0];
 
-  const handleTOCJump = (pageNumber) => {
+  const handleTOCJump = (pageNumber, targetId) => {
     const targetIdx = pages.findIndex((p) => p.pageNumber === pageNumber);
     if (targetIdx !== -1) {
       setCurrentPageIndex(targetIdx);
     }
-    const el = document.getElementById(`preview-page-${pageNumber}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (targetId) {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+    const pageEl = document.getElementById(`preview-page-${pageNumber}`) || document.getElementById(`page-${pageNumber}`);
+    if (pageEl) {
+      pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -126,6 +147,20 @@ const Step9Preview = ({ research, onNext, onPrev, targetPageNumber }) => {
         </button>
       </div>
 
+      {/* Document Settings Bar in Preview */}
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="w-full sm:w-80">
+          <FontSelector
+            value={documentModel?.fontFamily || research?.fontFamily || 'default'}
+            onChange={handleFontChange}
+            showDescription={false}
+          />
+        </div>
+        <p className="text-xs text-slate-500 font-amiri text-right flex-1">
+          * يمكنك تغيير نوع خط البحث ومعاينة صفحات المستند وتدفق الفقرات فوراً. (يبقى الغلاف دون تغيير).
+        </p>
+      </div>
+
       {/* Main Reader View with Sticky Sidebar Thumbnails and Full Vertically Stacked A4 Sheets */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Thumbnails Sidebar (lg: 3 cols) - Sticky */}
@@ -160,40 +195,43 @@ const Step9Preview = ({ research, onNext, onPrev, targetPageNumber }) => {
         </div>
 
         {/* Right Multi-Page Continuous A4 Document Preview (lg: 9 cols) */}
-        <div className="lg:col-span-9 bg-slate-300/80 p-4 md:p-8 rounded-2xl shadow-inner w-full flex flex-col items-center space-y-8 overflow-x-auto">
-          {pages.map((pageItem, pIdx) => {
-            const pageNum = pageItem.pageNumber || pIdx + 1;
-            return (
-              <div
-                key={pIdx}
-                id={`preview-page-${pageNum}`}
-                className="w-full flex flex-col items-center scroll-mt-6"
-              >
-                <div className="w-[210mm] max-w-full flex items-center justify-between px-2 mb-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 font-cairo">
-                    <span className="bg-white/90 px-2.5 py-1 rounded shadow-sm text-teal-900 border border-slate-200">
-                      صفحة {pageItem.pageNumberAr || pageNum}
-                    </span>
-                    <span className="text-slate-600 font-bold truncate max-w-md">
-                      {pageItem.title}
+        <div className="lg:col-span-9 w-full">
+          <A4ScaleWrapper pageCount={pages.length} className="flex flex-col items-center space-y-8">
+            {pages.map((pageItem, pIdx) => {
+              const pageNum = pageItem.pageNumber || pIdx + 1;
+              return (
+                <div
+                  key={pIdx}
+                  id={`preview-page-${pageNum}`}
+                  className="w-full flex flex-col items-center scroll-mt-6"
+                >
+                  <div className="w-[210mm] max-w-full flex items-center justify-between px-2 mb-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 font-cairo">
+                      <span className="bg-white/90 px-2.5 py-1 rounded shadow-sm text-teal-900 border border-slate-200">
+                        صفحة {pageItem.pageNumberAr || pageNum}
+                      </span>
+                      <span className="text-slate-600 font-bold truncate max-w-md">
+                        {pageItem.title}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase bg-slate-200/90 px-2 py-0.5 rounded border border-slate-300">
+                      {pageItem.pageType}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase bg-slate-200/90 px-2 py-0.5 rounded border border-slate-300">
-                    {pageItem.pageType}
-                  </span>
-                </div>
 
-                <div className="w-full flex justify-center overflow-x-auto">
-                  <A4Page
-                    page={pageItem}
-                    borderSvg={documentModel.border?.svgPattern}
-                    borderId={research?.borderId}
-                    onTOCLinkClick={handleTOCJump}
-                  />
+                  <div className="w-full flex justify-center overflow-x-auto">
+                    <A4Page
+                      page={pageItem}
+                      borderSvg={documentModel.border?.svgPattern}
+                      borderId={research?.borderId}
+                      fontFamily={documentModel.fontFamily || research?.fontFamily}
+                      onTOCLinkClick={handleTOCJump}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </A4ScaleWrapper>
         </div>
       </div>
 

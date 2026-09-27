@@ -12,10 +12,10 @@ const layoutRules = {
     }
   },
   margins: {
-    topMm: 20,
-    bottomMm: 20,
+    topMm: 25,
+    bottomMm: 25,
     rightMm: 25,
-    leftMm: 20
+    leftMm: 25
   },
   fonts: {
     primary: "'Amiri', 'Traditional Arabic', 'Scheherazade New', serif",

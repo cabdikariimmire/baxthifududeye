@@ -21,6 +21,8 @@ const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/ai_research_assistant',
+  clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '',
+  clerkSecretKey: process.env.CLERK_SECRET_KEY || '',
   jwtSecret: process.env.JWT_SECRET || (isProduction ? '' : 'academic_research_jwt_secret_dev_2026'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   cookieSecret: process.env.COOKIE_SECRET || (isProduction ? '' : 'academic_cookie_secret_dev_2026'),
@@ -41,7 +43,14 @@ const config = {
     provider: process.env.AI_PROVIDER || 'openrouter',
     model: process.env.AI_MODEL || 'nvidia/llama-3.1-nemotron-70b-instruct:free',
     apiKey: process.env.AI_API_KEY || ''
-  }
+  },
+
+  // Designated Super Admin emails
+  superAdminEmails: (process.env.SUPER_ADMIN_EMAILS || 'abdikrimmireahmd@gmail.com')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
 };
+
 
 module.exports = config;

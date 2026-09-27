@@ -131,21 +131,32 @@ const DashboardPage = () => {
                   )}
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between">
-                  <button
-                    onClick={() => handleDelete(res._id)}
-                    disabled={deletingId === res._id}
-                    title="حذف البحث"
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(res._id)}
+                      disabled={deletingId === res._id}
+                      title="حذف البحث"
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    {res.currentStep >= 8 && (
+                      <Link
+                        to={`/research/${res._id}/step/9`}
+                        title="معاينة A4"
+                        className="p-2 text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors text-xs font-bold"
+                      >
+                        معاينة
+                      </Link>
+                    )}
+                  </div>
 
                   <Link
                     to={`/research/${res._id}/step/${res.currentStep || 1}`}
-                    className="btn btn-primary text-xs px-4 py-2 font-cairo"
+                    className="btn btn-primary text-xs px-4 py-2 font-cairo flex items-center gap-1.5"
                   >
-                    <span>متابعة البحث</span>
+                    <span>متابعة وتعديل</span>
                     <ArrowLeft className="w-3.5 h-3.5" />
                   </Link>
                 </div>

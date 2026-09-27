@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Sparkles, Plus, Trash2, ArrowLeft, ArrowRight, CheckCircle2, Check, BookOpen } from 'lucide-react';
 import A4Page from '../../../components/common/A4Page';
+import A4ScaleWrapper from '../../../components/common/A4ScaleWrapper';
 import api from '../../../services/api';
 import { paginateTopicContent } from '../../../utils/paginationHelper';
 import {
@@ -10,6 +11,8 @@ import {
   buildTopicViewModels,
   ACADEMIC_LEVELS
 } from '../../../utils/academicHierarchy';
+import ArabicTypoInput from '../../../components/ArabicTypoInput';
+
 
 const sampleTopicContents = {
   1: `الفرع الأول : المعنى اللغوي
@@ -81,6 +84,39 @@ const sampleFootnotesByTopic = {
   ]
 };
 
+const ARABIC_INDIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+const toArabicIndicDigits = (num) => {
+  if (num === null || num === undefined) return '';
+  return String(num).replace(/\d/g, (d) => ARABIC_INDIC_DIGITS[parseInt(d, 10)]);
+};
+
+const removeFootnoteMarker = (text, marker) => {
+  if (!text || !marker) return text;
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match marker with:
+  // 1. Preceding horizontal whitespace [ \t]+ if followed by punctuation [.،,؛;:!؟?)] or [ \t] or end-of-line/string
+  // 2. Trailing horizontal whitespace [ \t]+
+  // 3. Just the marker alone
+  // NEVER match \r or \n so paragraph structure, empty lines, and line breaks are strictly preserved!
+  const regex = new RegExp(`(?:[ \\t]+${escaped}(?=[.،,؛;:!؟?)]|[ \\t]|\\r?\\n|$))|(?:${escaped}[ \\t]+)|(?:${escaped})`, 'g');
+  return text.replace(regex, '');
+};
+
+const renumberFootnoteMarkers = (text, mapping) => {
+  if (!text || !mapping || mapping.length === 0) return text;
+  const map = new Map();
+  mapping.forEach(({ oldMarker, newMarker }) => {
+    if (oldMarker && newMarker && oldMarker !== newMarker) {
+      map.set(oldMarker, newMarker);
+    }
+  });
+  if (map.size === 0) return text;
+
+  const escapedKeys = Array.from(map.keys()).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(escapedKeys.join('|'), 'g');
+  return text.replace(regex, (matched) => map.get(matched) || matched);
+};
+
 const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
   const derivedTopics = useMemo(() => {
     return buildTopicViewModels ? buildTopicViewModels(research) : [];
@@ -106,6 +142,7 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
 
   const textareaRef = useRef(null);
   const cursorPositionRef = useRef(null);
+  const selectionEndRef = useRef(null);
 
   const [rawContent, setRawContent] = useState(
     currentTopic.rawContent || sampleTopicContents[activeTopicIndex + 1] || ''
@@ -173,31 +210,45 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
   }, [activeTopicIndex, topics]);
 
   // Keep track of cursor position in textarea
-  const updateCursorPosition = () => {
-    if (textareaRef.current) {
-      cursorPositionRef.current = textareaRef.current.selectionStart;
+  const updateCursorPosition = (e) => {
+    const el = e?.target || textareaRef.current;
+    if (el && typeof el.selectionStart === 'number') {
+      cursorPositionRef.current = el.selectionStart;
+      selectionEndRef.current = typeof el.selectionEnd === 'number' ? el.selectionEnd : el.selectionStart;
     }
   };
 
   // 1. INLINE FOOTNOTE INSERTION AT EXACT CURSOR POSITION
   const handleAddInlineFootnote = () => {
     const textarea = textareaRef.current;
-    let pos = 0;
+    let start = null;
+    let end = null;
 
     if (textarea && typeof textarea.selectionStart === 'number') {
-      pos = textarea.selectionStart;
+      start = textarea.selectionStart;
+      end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : textarea.selectionStart;
     } else if (cursorPositionRef.current !== null) {
-      pos = cursorPositionRef.current;
+      start = cursorPositionRef.current;
+      end = selectionEndRef.current ?? cursorPositionRef.current;
     } else {
-      pos = rawContent.length;
+      start = rawContent.length;
+      end = rawContent.length;
     }
+
+    // Safety bounds
+    start = Math.max(0, Math.min(start, rawContent.length));
+    end = Math.max(start, Math.min(end, rawContent.length));
 
     const nextNumber = footnotes.length + 1;
     const marker = `(${nextNumber})`;
-    const insertText = ` ${marker}`;
 
-    const textBefore = rawContent.slice(0, pos);
-    const textAfter = rawContent.slice(pos);
+    // Check surrounding whitespace and punctuation
+    const needsLeadingSpace = start > 0 && !/\s$/.test(rawContent.slice(0, start));
+    const needsTrailingSpace = end < rawContent.length && !/[\s.,،؛:!؟?)]/.test(rawContent.charAt(end));
+    const insertText = `${needsLeadingSpace ? ' ' : ''}${marker}${needsTrailingSpace ? ' ' : ''}`;
+
+    const textBefore = rawContent.slice(0, start);
+    const textAfter = rawContent.slice(end);
     const updatedContent = textBefore + insertText + textAfter;
 
     const newFootnoteId = `fn-${currentTopic.topicId || currentTopic.structureNodeId || 'topic'}-${Date.now()}`;
@@ -214,18 +265,19 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
     setFootnotes(updatedFootnotes);
 
     // Update semantic blocks to reflect the marker immediately
-    const updatedBlocks = blocks.length
-      ? blocks.map((b, i) => (i === blocks.length - 1 && b.type === 'paragraph' ? { ...b, text: b.text + insertText } : b))
-      : [{ type: 'h1', text: currentTopic.h1Title }, { type: 'paragraph', text: updatedContent }];
+    const updatedBlocks = parseContentToSemanticBlocks(currentTopic.h1Title, updatedContent, blocks);
     setBlocks(updatedBlocks);
+
+    // Update cursor position right after the inserted marker
+    const newPos = start + insertText.length;
+    cursorPositionRef.current = newPos;
+    selectionEndRef.current = newPos;
 
     // Restore cursor position right after the inserted marker and focus footnote input
     setTimeout(() => {
       if (textarea) {
         textarea.focus();
-        const newPos = pos + insertText.length;
         textarea.setSelectionRange(newPos, newPos);
-        cursorPositionRef.current = newPos;
       }
       const fnInput = document.getElementById(`fn-input-${newFootnoteId}`);
       if (fnInput) {
@@ -242,13 +294,37 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
     setFootnotes(updated);
   };
 
-  // 3. DELETE FOOTNOTE & AUTOMATIC RENUMBERING
-  const handleDeleteFootnote = (indexToDelete) => {
-    const fnToDelete = footnotes[indexToDelete];
-    const oldMarker = fnToDelete.marker || `(${fnToDelete.number})`;
+  // 3. DELETE FOOTNOTE & AUTOMATIC RENUMBERING WITHOUT ALTERING PARAGRAPHS
+  const handleDeleteFootnote = (targetIdOrIndex) => {
+    let targetIndex = -1;
+    let fnToDelete = null;
 
-    // Remove footnote from array
-    const remaining = footnotes.filter((_, i) => i !== indexToDelete);
+    if (typeof targetIdOrIndex === 'number') {
+      targetIndex = targetIdOrIndex;
+      fnToDelete = footnotes[targetIdOrIndex];
+    } else if (typeof targetIdOrIndex === 'string') {
+      targetIndex = footnotes.findIndex(
+        (f) => f.footnoteId === targetIdOrIndex || f.id === targetIdOrIndex
+      );
+      if (targetIndex !== -1) {
+        fnToDelete = footnotes[targetIndex];
+      }
+    }
+
+    if (!fnToDelete || targetIndex === -1) {
+      console.warn('Footnote to delete not found:', targetIdOrIndex);
+      return;
+    }
+
+    // Identify all marker representations for the deleted footnote
+    const oldNum = fnToDelete.number || targetIndex + 1;
+    const markersToRemove = new Set();
+    if (fnToDelete.marker) markersToRemove.add(fnToDelete.marker);
+    markersToRemove.add(`(${oldNum})`);
+    markersToRemove.add(`(${toArabicIndicDigits(oldNum)})`);
+
+    // Remove footnote from array by stable identity
+    const remaining = footnotes.filter((_, i) => i !== targetIndex);
 
     // Renumber remaining footnotes sequentially
     const renumbered = remaining.map((fn, idx) => ({
@@ -257,18 +333,64 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
       marker: `(${idx + 1})`
     }));
 
-    // Update markers in rawContent text:
-    // 1. Remove the deleted marker
-    let updatedText = rawContent.replace(oldMarker, '').replace(/\s{2,}/g, ' ');
-
-    // 2. Renumber remaining markers in rawContent
+    // Build renumbering mapping for remaining footnote markers
+    const renumberMapping = [];
     remaining.forEach((oldFn, idx) => {
-      const currentMarker = oldFn.marker || `(${oldFn.number})`;
-      const targetMarker = `(${idx + 1})`;
-      if (currentMarker !== targetMarker) {
-        updatedText = updatedText.replace(currentMarker, targetMarker);
+      const fromNum = oldFn.number;
+      const toNum = idx + 1;
+      if (fromNum !== toNum) {
+        if (oldFn.marker && oldFn.marker !== `(${toNum})`) {
+          renumberMapping.push({ oldMarker: oldFn.marker, newMarker: `(${toNum})` });
+        }
+        renumberMapping.push({ oldMarker: `(${fromNum})`, newMarker: `(${toNum})` });
+        renumberMapping.push({
+          oldMarker: `(${toArabicIndicDigits(fromNum)})`,
+          newMarker: `(${toArabicIndicDigits(toNum)})`
+        });
       }
     });
+
+    // Update markers in rawContent without modifying newlines, spaces, or layout
+    let updatedText = rawContent;
+    markersToRemove.forEach((m) => {
+      updatedText = removeFootnoteMarker(updatedText, m);
+    });
+    if (renumberMapping.length > 0) {
+      updatedText = renumberFootnoteMarkers(updatedText, renumberMapping);
+    }
+
+    // Preserve existing semantic block structure without regenerating or reflowing blocks
+    if (blocks && blocks.length > 0) {
+      const updatedBlocks = blocks.map((block) => {
+        if (!block || !block.text) return block;
+        let text = block.text;
+        let changed = false;
+
+        markersToRemove.forEach((m) => {
+          const afterRemove = removeFootnoteMarker(text, m);
+          if (afterRemove !== text) {
+            text = afterRemove;
+            changed = true;
+          }
+        });
+
+        if (renumberMapping.length > 0) {
+          const afterRenumber = renumberFootnoteMarkers(text, renumberMapping);
+          if (afterRenumber !== text) {
+            text = afterRenumber;
+            changed = true;
+          }
+        }
+
+        if (!changed) return block;
+
+        return {
+          ...block,
+          text
+        };
+      });
+      setBlocks(updatedBlocks);
+    }
 
     setFootnotes(renumbered);
     setRawContent(updatedText);
@@ -317,9 +439,7 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
     setSaving(true);
     try {
       const finalStatus = markComplete || isCompleted || rawContent.trim().length > 30 ? 'complete' : 'in_progress';
-      const finalBlocks = blocks.length
-        ? blocks
-        : [{ type: 'h1', text: currentTopic.h1Title }, { type: 'paragraph', text: rawContent }];
+      const finalBlocks = parseContentToSemanticBlocks(currentTopic.h1Title, rawContent, blocks);
 
       const targetId = currentTopic.topicId || currentTopic.structureNodeId || currentTopic._id || `topic-${activeTopicIndex + 1}`;
 
@@ -436,9 +556,9 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Left Column: Topic Editor & Footnotes (lg: 7 cols) */}
-      <div className="lg:col-span-7 space-y-6">
+    <div className="space-y-8 w-full">
+      {/* ═══════ EDITOR / FORM CONTROLS (TOP) ═══════ */}
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         {/* Topic Selector Tabs */}
         {topics.length > 1 && (
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -496,6 +616,7 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
 
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAddInlineFootnote}
                 className="btn btn-primary text-xs py-2 px-3.5 bg-teal-800 hover:bg-teal-900 text-white flex items-center gap-1.5 shadow-sm"
                 title="إدراج رقم هامش فوري في موضع المؤشر الحالي داخل النص"
@@ -523,7 +644,8 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
               </span>
             </div>
 
-            <textarea
+            <ArabicTypoInput
+              as="textarea"
               ref={textareaRef}
               rows={11}
               value={rawContent}
@@ -531,9 +653,10 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
               onKeyUp={updateCursorPosition}
               onMouseUp={updateCursorPosition}
               onFocus={updateCursorPosition}
+              onClick={updateCursorPosition}
               onChange={(e) => {
                 setRawContent(e.target.value);
-                updateCursorPosition();
+                updateCursorPosition(e);
                 if (e.target.value.trim().length > 30) {
                   setIsCompleted(true);
                 }
@@ -541,6 +664,7 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
               className="textarea-field font-amiri text-base leading-loose p-4 border-slate-300 focus:border-teal-700 focus:ring-teal-700 rounded-xl"
               placeholder="اكتب أو الصق محتوى المطلب هنا... ضع المؤشر واضغط '＋ إضافة هامش' لربط مرجع أو مصدر فوراً..."
               required
+              projectContext={currentTopic.h1Title}
             />
           </div>
 
@@ -558,6 +682,7 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
               </div>
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAddInlineFootnote}
                 className="text-xs font-bold text-teal-700 hover:text-teal-900 hover:underline flex items-center gap-1"
               >
@@ -594,7 +719,7 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
 
                     <button
                       type="button"
-                      onClick={() => handleDeleteFootnote(idx)}
+                      onClick={() => handleDeleteFootnote(fn.footnoteId || idx)}
                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
                       title="حذف هذا الهامش وتحديث الترقيم التلقائي"
                     >
@@ -645,9 +770,9 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
         </div>
       </div>
 
-      {/* Right Column: Live A4 Topic Pages Preview (lg: 5 cols) */}
-      <div className="lg:col-span-5 flex flex-col items-center space-y-6">
-        <div className="w-full flex items-center justify-between px-2">
+      {/* ═══════ A4 DOCUMENT PREVIEW (BOTTOM) ═══════ */}
+      <div className="w-full space-y-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <span className="font-bold text-sm text-slate-700 font-cairo">
             المعاينة الحية للمطلب (A4)
           </span>
@@ -656,18 +781,18 @@ const Step4TopicContent = ({ research, onSave, onNext, onPrev }) => {
           </span>
         </div>
 
-        {paginatedTopicPages.map((pageItem, pIdx) => (
-          <div key={pIdx} className="w-full flex flex-col items-center">
-            {paginatedTopicPages.length > 1 && (
-              <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
-                صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
-              </div>
-            )}
-            <div className="bg-slate-200/80 p-4 rounded-xl shadow-inner w-full flex justify-center overflow-x-auto">
-              <A4Page page={pageItem} borderId={research?.borderId} />
+        <A4ScaleWrapper pageCount={paginatedTopicPages.length}>
+          {paginatedTopicPages.map((pageItem, pIdx) => (
+            <div key={pIdx} className="w-full flex flex-col items-center">
+              {paginatedTopicPages.length > 1 && (
+                <div className="text-xs font-bold text-slate-500 font-cairo mb-1.5 self-start px-2">
+                  صفحة {pageItem.pageNumberAr || pageItem.pageNumber}
+                </div>
+              )}
+              <A4Page page={pageItem} borderId={research?.borderId} fontFamily={research?.fontFamily} />
             </div>
-          </div>
-        ))}
+          ))}
+        </A4ScaleWrapper>
       </div>
     </div>
   );

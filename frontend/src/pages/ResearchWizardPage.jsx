@@ -271,6 +271,7 @@ const ResearchWizardPage = () => {
         {currentStep === 8 && (
           <Step9Preview
             research={research}
+            onSave={handleSaveData}
             onNext={handleNext}
             onPrev={handlePrev}
             targetPageNumber={targetPageForPreview}

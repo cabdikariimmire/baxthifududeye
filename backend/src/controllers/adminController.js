@@ -9,6 +9,8 @@ const defaultBorders = require('../services/document/defaultBorders');
 const AIService = require('../services/ai/aiService');
 const config = require('../config/env');
 const mongoose = require('mongoose');
+const { isDesignatedSuperAdmin } = require('../middleware/auth');
+
 
 // Seed default borders & settings if empty
 const seedDefaultsIfEmpty = async () => {
@@ -58,16 +60,21 @@ const getStats = async (req, res, next) => {
       researchCount,
       completedResearchCount,
       activeUserCount,
-      pdfExportsCount,
-      docxExportsCount
+      suspendedUserCount,
+      pdfExportsCount
     ] = await Promise.all([
       User.countDocuments(),
       Research.countDocuments(),
       Research.countDocuments({ status: { $in: ['ready', 'exported'] } }),
-      User.countDocuments({ status: 'active', updatedAt: { $gte: thirtyDaysAgo } }),
-      ActivityLog.countDocuments({ action: 'pdf_exported' }),
-      ActivityLog.countDocuments({ action: 'docx_exported' })
+      User.countDocuments({ status: 'active' }),
+      User.countDocuments({ status: 'suspended' }),
+      ActivityLog.countDocuments({ action: 'pdf_exported' })
     ]);
+
+    const recentUsers = await User.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('name email role status createdAt');
 
     const recentResearches = await Research.find()
       .populate('userId', 'name email')
@@ -87,11 +94,12 @@ const getStats = async (req, res, next) => {
           userCount,
           researchCount,
           completedResearchCount,
-          activeUserCount: Math.max(activeUserCount, userCount > 0 ? 1 : 0),
-          exportsCount: pdfExportsCount + docxExportsCount,
-          pdfExportsCount,
-          docxExportsCount
+          activeUserCount,
+          inactiveUserCount: suspendedUserCount,
+          exportsCount: pdfExportsCount,
+          pdfExportsCount
         },
+        recentUsers,
         recentResearches,
         recentActivity
       }
@@ -117,7 +125,7 @@ const listUsers = async (req, res, next) => {
         { email: { $regex: search, $options: 'i' } }
       ];
     }
-    if (roleFilter && ['user', 'admin'].includes(roleFilter)) {
+    if (roleFilter && ['user', 'admin', 'super_admin', 'editor'].includes(roleFilter)) {
       matchQuery.role = roleFilter;
     }
     if (statusFilter && ['active', 'suspended'].includes(statusFilter)) {
@@ -224,8 +232,26 @@ const getUserResearches = async (req, res, next) => {
 const updateUserRole = async (req, res, next) => {
   try {
     const { role } = req.body;
-    if (!role || !['user', 'admin'].includes(role)) {
-      return res.status(400).json({ success: false, code: 'INVALID_ROLE', message: 'يرجى تحديد دور صالح (user أو admin)' });
+    if (!role || !['user', 'admin', 'super_admin', 'editor'].includes(role)) {
+      return res.status(400).json({ success: false, code: 'INVALID_ROLE', message: 'يرجى تحديد دور صالح (user أو editor أو admin أو super_admin)' });
+    }
+
+    // Authorization rule: Only admins and super_admins can change roles
+    if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN',
+        message: 'غير مصرح لك بتعديل أدوار المستخدمين.'
+      });
+    }
+
+    // Higher authority rule: Only Super Admin can promote someone to super_admin or modify a super_admin
+    if ((role === 'super_admin') && req.user.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN',
+        message: 'يتطلب ترقية مستخدم إلى مدير عام (Super Admin) صلاحيات مدير عام حصراً.'
+      });
     }
 
     const targetUser = await User.findById(req.params.id);
@@ -233,9 +259,38 @@ const updateUserRole = async (req, res, next) => {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'المستخدم غير موجود' });
     }
 
+    // Safety guard: The designated Super Admin account cannot be demoted
+    if (isDesignatedSuperAdmin(targetUser.email) && role !== 'super_admin') {
+      return res.status(400).json({
+        success: false,
+        code: 'CANNOT_DEMOTE_DESIGNATED_SUPER_ADMIN',
+        message: 'لا يمكن خفض رتبة حساب المدير العام الرئيسي للنظام.'
+      });
+    }
+
+    if (targetUser.role === 'super_admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN',
+        message: 'لا يمكن لغير المدير العام تعديل رتبة مدير عام آخر.'
+      });
+    }
+
+    // Safety guard: Protect the last super_admin from downgrade
+    if (targetUser.role === 'super_admin' && role !== 'super_admin') {
+      const superAdminCount = await User.countDocuments({ role: 'super_admin', status: 'active' });
+      if (superAdminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          code: 'CANNOT_REMOVE_LAST_SUPER_ADMIN',
+          message: 'لا يمكن خفض رتبة المدير العام (Super Admin) الأخير في النظام لمنع فقدان التحكم.'
+        });
+      }
+    }
+
     // Safety guard: Prevent removing the last active administrator
-    if (targetUser.role === 'admin' && role === 'user') {
-      const activeAdminCount = await User.countDocuments({ role: 'admin', status: 'active' });
+    if ((targetUser.role === 'admin' || targetUser.role === 'super_admin') && role === 'user') {
+      const activeAdminCount = await User.countDocuments({ role: { $in: ['admin', 'super_admin'] }, status: 'active' });
       if (activeAdminCount <= 1) {
         return res.status(400).json({
           success: false,
@@ -245,9 +300,19 @@ const updateUserRole = async (req, res, next) => {
       }
     }
 
+    // Safety guard: A user cannot modify their own role through a client request
+    if (targetUser._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        code: 'CANNOT_MODIFY_OWN_ROLE',
+        message: 'لا يمكن للمستخدم تعديل دوره الخاص.'
+      });
+    }
+
     const oldRole = targetUser.role;
     targetUser.role = role;
     await targetUser.save();
+
 
     // Record real activity log
     await ActivityLog.record({
@@ -285,9 +350,27 @@ const updateUserStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'المستخدم غير موجود' });
     }
 
-    // Safety guard if suspending an admin
-    if (status === 'suspended' && targetUser.role === 'admin') {
-      const activeAdminCount = await User.countDocuments({ role: 'admin', status: 'active' });
+    // Safety guard: Super Admin cannot deactivate themselves
+    if (status === 'suspended' && req.user._id.toString() === targetUser._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        code: 'CANNOT_DEACTIVATE_SELF',
+        message: 'لا يمكنك تجميد أو إيقاف حسابك الإداري الخاص.'
+      });
+    }
+
+    // Safety guard: Do not suspend the last active super_admin / admin
+    if (status === 'suspended' && targetUser.role === 'super_admin') {
+      const activeSuperAdminCount = await User.countDocuments({ role: 'super_admin', status: 'active' });
+      if (activeSuperAdminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          code: 'CANNOT_SUSPEND_LAST_SUPER_ADMIN',
+          message: 'لا يمكن إيقاف حساب المدير العام الأخير في النظام.'
+        });
+      }
+    } else if (status === 'suspended' && targetUser.role === 'admin') {
+      const activeAdminCount = await User.countDocuments({ role: { $in: ['admin', 'super_admin'] }, status: 'active' });
       if (activeAdminCount <= 1) {
         return res.status(400).json({
           success: false,
@@ -300,7 +383,7 @@ const updateUserStatus = async (req, res, next) => {
     if (status && ['active', 'suspended'].includes(status)) {
       targetUser.status = status;
     }
-    if (role && ['user', 'admin'].includes(role)) {
+    if (role && ['user', 'admin', 'super_admin'].includes(role) && req.user.role === 'super_admin') {
       targetUser.role = role;
     }
 
@@ -405,6 +488,40 @@ const getResearchDetails = async (req, res, next) => {
     next(err);
   }
 };
+
+const updateResearchStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const research = await Research.findById(req.params.id).populate('userId', 'name email');
+    if (!research) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'البحث غير موجود' });
+    }
+
+    const oldStatus = research.status;
+    if (status && ['draft', 'structure_review', 'in_progress', 'ready', 'exported', 'archived'].includes(status)) {
+      research.status = status;
+      await research.save();
+    }
+
+    await ActivityLog.record({
+      userId: req.user._id,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      action: status === 'archived' ? 'research_archived' : 'research_updated',
+      targetId: String(research._id),
+      details: `تم تعديل حالة البحث (${research.title}) من "${oldStatus}" إلى "${research.status}"`
+    });
+
+    return res.json({
+      success: true,
+      message: 'تم تحديث حالة البحث بنجاح',
+      data: { research }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 // 4. Activity Logs
 const listActivityLogs = async (req, res, next) => {
@@ -644,7 +761,6 @@ const listLogs = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(100);
 
-    return res.json({ success: true, data: { logs } });
   } catch (err) {
     next(err);
   }
@@ -660,6 +776,7 @@ module.exports = {
   updateUserStatus,
   listAllResearches,
   getResearchDetails,
+  updateResearchStatus,
   listActivityLogs,
   getSystemSettings,
   updateSystemSettings,

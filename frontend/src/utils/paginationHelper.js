@@ -1,7 +1,7 @@
 /**
  * Client-Side Deterministic A4 Pagination Helper
  * Mirrors backend PaginationEngine:
- * - Mathematical A4 Usable Height = 297mm - 24mm - 24mm = 249mm = 705.83pt
+ * - Mathematical A4 Usable Height = 297mm - 25mm - 25mm = 247mm = 700.16pt
  * - Usable Width = 210mm - 25mm - 25mm = 160mm = 453.54pt
  * - True Arabic content-aware line wrapping & measurement
  * - Dynamic paragraph splitting & orphan prevention
@@ -748,7 +748,7 @@ export function paginateReferencesContent({
   const pages = [];
   let currentPage = startPageNumber;
   const contentWidthPt = 453.54;
-  const maxH = 705.83; // 249mm usable height
+  const maxH = 700.16; // 247mm usable height
 
   const refChunks = [];
   if (references.length === 0) {
